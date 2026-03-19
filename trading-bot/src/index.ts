@@ -3,15 +3,15 @@ import { fetchCandles } from "./services/exchangeClient";
 import { analyzeMarketRegime } from "./services/marketRegimeAnalyzer";
 import { runTradingCycle } from "./services/tradingEngine";
 
-function printAnalysis(): Promise<void> {
+function analyzeAndTradeSymbol(symbol: string): Promise<void> {
   const confirmationIntervals = config.confirmationIntervals.filter(
     (candidate) => candidate !== config.interval
   );
 
   return Promise.all([
-    fetchCandles(config.exchangeId, config.symbol, config.interval, config.lookbackLimit),
+    fetchCandles(config.exchangeId, symbol, config.interval, config.lookbackLimit),
     ...confirmationIntervals.map((confirmationInterval) =>
-      fetchCandles(config.exchangeId, config.symbol, confirmationInterval, config.lookbackLimit).then(
+      fetchCandles(config.exchangeId, symbol, confirmationInterval, config.lookbackLimit).then(
         (candles) => ({
           interval: confirmationInterval,
           candles
@@ -22,7 +22,7 @@ function printAnalysis(): Promise<void> {
     .then(async ([candles, ...confirmationInputs]) => {
       const analysis = await analyzeMarketRegime(
         candles,
-        config.symbol,
+        symbol,
         config.interval,
         config.thresholds,
         config.aiStrategy,
@@ -39,6 +39,7 @@ function printAnalysis(): Promise<void> {
       console.log(
         JSON.stringify(
           {
+            symbol,
             analysis,
             trading
           },
@@ -53,7 +54,7 @@ function printAnalysis(): Promise<void> {
           {
             timestamp: new Date().toISOString(),
             exchangeId: config.exchangeId,
-            symbol: config.symbol,
+            symbol,
             interval: config.interval,
             confirmationIntervals,
             tradingMode: config.trading.mode,
@@ -64,6 +65,10 @@ function printAnalysis(): Promise<void> {
         )
       );
     });
+}
+
+function printAnalysis(): Promise<void> {
+  return Promise.all(config.symbols.map((symbol) => analyzeAndTradeSymbol(symbol))).then(() => undefined);
 }
 
 async function main(): Promise<void> {

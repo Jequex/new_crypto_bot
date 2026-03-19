@@ -53,6 +53,7 @@ function readTradingMode(name: string, fallback: "paper" | "live"): "paper" | "l
 export const config = {
   exchangeId: process.env.EXCHANGE_ID ?? "binance",
   symbol: process.env.SYMBOL ?? "BTC/USDT",
+  symbols: readList("SYMBOLS", process.env.SYMBOL ? [process.env.SYMBOL] : ["BTC/USDT"]),
   interval: process.env.INTERVAL ?? "1h",
   confirmationIntervals: readList("CONFIRMATION_INTERVALS", ["4h", "1d"]),
   lookbackLimit: readNumber("LOOKBACK_LIMIT", 250),

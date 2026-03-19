@@ -1,5 +1,5 @@
 import { mkdir, readFile, writeFile } from "fs/promises";
-import { dirname, resolve } from "path";
+import { dirname, extname, join, resolve } from "path";
 
 import { TradingState } from "../types";
 
@@ -40,11 +40,28 @@ function resolvePath(stateFilePath: string): string {
   return resolve(process.cwd(), stateFilePath);
 }
 
+function symbolFileName(symbol: string): string {
+  return symbol.replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-+|-+$/g, "").toLowerCase();
+}
+
+function resolveSymbolStatePath(symbol: string, stateFilePath: string): string {
+  const absoluteBasePath = resolvePath(stateFilePath);
+  const extension = extname(absoluteBasePath);
+
+  if (!extension) {
+    return join(absoluteBasePath, `${symbolFileName(symbol)}.json`);
+  }
+
+  const baseDirectory = dirname(absoluteBasePath);
+  const fileName = absoluteBasePath.slice(baseDirectory.length + 1, -extension.length);
+  return join(baseDirectory, `${fileName}.${symbolFileName(symbol)}${extension}`);
+}
+
 export async function loadTradingState(
   symbol: string,
   config: TradingStoreConfig
 ): Promise<TradingState> {
-  const filePath = resolvePath(config.stateFilePath);
+  const filePath = resolveSymbolStatePath(symbol, config.stateFilePath);
 
   try {
     const raw = await readFile(filePath, "utf8");
@@ -68,7 +85,7 @@ export async function loadTradingState(
 }
 
 export async function saveTradingState(state: TradingState, config: TradingStoreConfig): Promise<void> {
-  const filePath = resolvePath(config.stateFilePath);
+  const filePath = resolveSymbolStatePath(state.symbol, config.stateFilePath);
   await mkdir(dirname(filePath), { recursive: true });
 
   const trimmedState: TradingState = {
