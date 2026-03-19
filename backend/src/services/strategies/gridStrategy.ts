@@ -19,6 +19,13 @@ function round(value: number): number {
   return Number(value.toFixed(8));
 }
 
+function formatGridExitMessage(execution: TradeExecution, levelIndex: number): string {
+  const realizedPnlQuote = execution.realizedPnlQuote ?? 0;
+  const realizedPnlPercent = execution.realizedPnlPercent ?? 0;
+
+  return `Grid level ${levelIndex} closed at ${execution.price} with PnL ${realizedPnlQuote} (${realizedPnlPercent}%).`;
+}
+
 function buildGrid(anchorPrice: number, levels: number, spacingPercent: number): GridState {
   return {
     anchorPrice: round(anchorPrice),
@@ -71,6 +78,19 @@ export async function unwindGridPosition(
       },
       config
     );
+
+    if (execution.status === "filled") {
+      const entryQuote = level.entryPrice * level.baseAmount;
+      const entryCost = entryQuote * (1 + config.feeRate);
+      const exitProceeds = execution.quoteAmount - execution.feeAmount;
+      const realizedPnlQuote = round(exitProceeds - entryCost);
+      const realizedPnlPercent = entryCost > 0 ? round((realizedPnlQuote / entryCost) * 100) : 0;
+
+      execution.entryPrice = round(level.entryPrice);
+      execution.realizedPnlQuote = realizedPnlQuote;
+      execution.realizedPnlPercent = realizedPnlPercent;
+      execution.note = formatGridExitMessage(execution, level.index);
+    }
 
     executions.push(execution);
 
@@ -159,13 +179,26 @@ export async function runGridStrategy(
         config
       );
 
+      if (execution.status === "filled") {
+        const entryQuote = level.entryPrice * level.baseAmount;
+        const entryCost = entryQuote * (1 + config.feeRate);
+        const exitProceeds = execution.quoteAmount - execution.feeAmount;
+        const realizedPnlQuote = round(exitProceeds - entryCost);
+        const realizedPnlPercent = entryCost > 0 ? round((realizedPnlQuote / entryCost) * 100) : 0;
+
+        execution.entryPrice = round(level.entryPrice);
+        execution.realizedPnlQuote = realizedPnlQuote;
+        execution.realizedPnlPercent = realizedPnlPercent;
+        execution.note = formatGridExitMessage(execution, level.index);
+      }
+
       executions.push(execution);
 
       if (execution.status === "filled") {
         level.status = "empty";
         level.baseAmount = 0;
         level.entryPrice = 0;
-        actionablePoints.push(`Took profit on grid level ${level.index} as price reverted upward.`);
+        actionablePoints.push(formatGridExitMessage(execution, level.index));
       }
     }
   }

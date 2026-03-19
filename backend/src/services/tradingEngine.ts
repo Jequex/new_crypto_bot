@@ -18,6 +18,8 @@ interface TradingConfig {
     maxEntries: number;
     stepPercent: number;
     takeProfitPercent: number;
+    trailingTakeProfitEnabled: boolean;
+    trailingStopPercent: number;
     stopLossPercent: number;
     exitOnRegimeChange: boolean;
   };
@@ -84,7 +86,10 @@ export async function runTradingCycle(
         baseAmount: 0,
         quoteSpent: 0,
         avgEntryPrice: 0,
-        lastEntryPrice: 0
+        lastEntryPrice: 0,
+        trailingTakeProfitActive: false,
+        highestPriceSinceEntry: 0,
+        trailingStopPrice: 0
       },
       grid: null,
       actionablePoints: ["Trading automation is disabled."]

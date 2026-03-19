@@ -38,7 +38,8 @@ The trading engine is stateful and stores balances, active strategy state, and e
 - Used only when the confirmed regime is `bull`
 - Opens an initial tranche when bullish conviction clears the configured threshold
 - Adds more tranches only when price pulls back by the configured DCA step percentage
-- Exits on take-profit, stop-loss, or bull regime loss depending on config
+- Can activate trailing take-profit once the profit trigger is reached
+- Exits on trailing take-profit, fixed take-profit, stop-loss, or bull regime loss depending on config
 
 ### Grid bot
 
@@ -107,7 +108,9 @@ The main bot output now includes both `analysis` and `trading` objects.
 - `DCA_TRANCHE_QUOTE`: Quote currency allocated per DCA buy
 - `DCA_MAX_ENTRIES`: Maximum number of DCA tranches in one bull cycle
 - `DCA_STEP_PERCENT`: Pullback percentage required before adding another DCA tranche
-- `DCA_TAKE_PROFIT_PERCENT`: DCA take-profit threshold from average entry
+- `DCA_TAKE_PROFIT_PERCENT`: DCA profit threshold from average entry that triggers fixed take-profit or trailing activation
+- `DCA_TRAILING_TAKE_PROFIT_ENABLED`: Enables trailing take-profit after the take-profit trigger is reached
+- `DCA_TRAILING_STOP_PERCENT`: Distance between the highest tracked price and the trailing exit stop
 - `DCA_STOP_LOSS_PERCENT`: DCA stop-loss threshold from average entry
 - `DCA_EXIT_ON_REGIME_CHANGE`: If `true`, closes DCA positions when the regime is no longer bullish
 - `GRID_LEVELS`: Number of long-only grid levels below the anchor

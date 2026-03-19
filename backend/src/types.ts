@@ -72,9 +72,12 @@ export interface TradeExecution {
   strategy: Exclude<StrategyName, "none">;
   side: OrderSide;
   price: number;
+  entryPrice?: number;
   baseAmount: number;
   quoteAmount: number;
   feeAmount: number;
+  realizedPnlQuote?: number;
+  realizedPnlPercent?: number;
   status: "filled" | "skipped";
   reason: string;
   note?: string;
@@ -92,6 +95,9 @@ export interface DcaState {
   quoteSpent: number;
   avgEntryPrice: number;
   lastEntryPrice: number;
+  trailingTakeProfitActive: boolean;
+  highestPriceSinceEntry: number;
+  trailingStopPrice: number;
 }
 
 export interface GridLevelState {

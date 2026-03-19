@@ -26,7 +26,10 @@ function initialState(symbol: string, config: TradingStoreConfig): TradingState 
       baseAmount: 0,
       quoteSpent: 0,
       avgEntryPrice: 0,
-      lastEntryPrice: 0
+      lastEntryPrice: 0,
+      trailingTakeProfitActive: false,
+      highestPriceSinceEntry: 0,
+      trailingStopPrice: 0
     },
     grid: null,
     tradeHistory: [],
@@ -52,7 +55,14 @@ export async function loadTradingState(
       return initialState(symbol, config);
     }
 
-    return parsed;
+    return {
+      ...parsed,
+      dca: {
+        ...initialState(symbol, config).dca,
+        ...parsed.dca
+      },
+      tradeHistory: parsed.tradeHistory ?? []
+    };
   } catch {
     return initialState(symbol, config);
   }

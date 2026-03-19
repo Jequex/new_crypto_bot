@@ -11,6 +11,8 @@ interface TradingConfig {
     maxEntries: number;
     stepPercent: number;
     takeProfitPercent: number;
+    trailingTakeProfitEnabled: boolean;
+    trailingStopPercent: number;
     stopLossPercent: number;
     exitOnRegimeChange: boolean;
   };
@@ -20,14 +22,31 @@ function round(value: number): number {
   return Number(value.toFixed(8));
 }
 
+function formatPnlMessage(execution: TradeExecution): string {
+  const realizedPnlQuote = execution.realizedPnlQuote ?? 0;
+  const realizedPnlPercent = execution.realizedPnlPercent ?? 0;
+
+  return `DCA position closed at ${execution.price} with PnL ${realizedPnlQuote} (${realizedPnlPercent}%).`;
+}
+
 function resetDcaState(state: TradingState): void {
   state.dca = {
     entries: 0,
     baseAmount: 0,
     quoteSpent: 0,
     avgEntryPrice: 0,
-    lastEntryPrice: 0
+    lastEntryPrice: 0,
+    trailingTakeProfitActive: false,
+    highestPriceSinceEntry: 0,
+    trailingStopPrice: 0
   };
+}
+
+function armOrUpdateTrailingTakeProfit(state: TradingState, price: number, config: TradingConfig): void {
+  const nextHighestPrice = Math.max(state.dca.highestPriceSinceEntry, price);
+  state.dca.highestPriceSinceEntry = round(nextHighestPrice);
+  state.dca.trailingTakeProfitActive = true;
+  state.dca.trailingStopPrice = round(nextHighestPrice * (1 - config.dca.trailingStopPercent));
 }
 
 export async function unwindDcaPosition(
@@ -40,6 +59,9 @@ export async function unwindDcaPosition(
     resetDcaState(state);
     return [];
   }
+
+  const entryPrice = state.dca.avgEntryPrice;
+  const quoteSpent = state.dca.quoteSpent;
 
   const execution = await executeTrade(
     state,
@@ -54,6 +76,14 @@ export async function unwindDcaPosition(
   );
 
   if (execution.status === "filled") {
+    const netExitQuote = execution.quoteAmount - execution.feeAmount;
+    const realizedPnlQuote = round(netExitQuote - quoteSpent);
+    const realizedPnlPercent = quoteSpent > 0 ? round((realizedPnlQuote / quoteSpent) * 100) : 0;
+
+    execution.entryPrice = round(entryPrice);
+    execution.realizedPnlQuote = realizedPnlQuote;
+    execution.realizedPnlPercent = realizedPnlPercent;
+    execution.note = formatPnlMessage(execution);
     resetDcaState(state);
   }
 
@@ -73,23 +103,58 @@ export async function runDcaStrategy(
     const takeProfitPrice = state.dca.avgEntryPrice * (1 + config.dca.takeProfitPercent);
     const stopLossPrice = state.dca.avgEntryPrice * (1 - config.dca.stopLossPercent);
 
-    if (price >= takeProfitPrice) {
-      actionablePoints.push("DCA take-profit threshold reached. Closing the bull position.");
+    if (config.dca.trailingTakeProfitEnabled) {
+      if (price >= takeProfitPrice) {
+        armOrUpdateTrailingTakeProfit(state, price, config);
+        actionablePoints.push(
+          state.dca.highestPriceSinceEntry === round(price)
+            ? "DCA trailing take-profit is active and tracking new highs."
+            : "DCA trailing take-profit is active."
+        );
+      }
+
+      if (state.dca.trailingTakeProfitActive && state.dca.trailingStopPrice > 0 && price <= state.dca.trailingStopPrice) {
+        executions.push(...(await unwindDcaPosition(state, price, config, "DCA trailing take-profit hit.")));
+        const exitExecution = executions.at(-1);
+        actionablePoints.push(
+          exitExecution?.status === "filled"
+            ? formatPnlMessage(exitExecution)
+            : "DCA trailing take-profit stop was hit, but the close order was not filled."
+        );
+        return { executions, actionablePoints };
+      }
+    } else if (price >= takeProfitPrice) {
       executions.push(...(await unwindDcaPosition(state, price, config, "DCA take-profit hit.")));
+      const exitExecution = executions.at(-1);
+      actionablePoints.push(
+        exitExecution?.status === "filled"
+          ? formatPnlMessage(exitExecution)
+          : "DCA take-profit threshold reached, but the close order was not filled."
+      );
       return { executions, actionablePoints };
     }
 
     if (price <= stopLossPrice) {
-      actionablePoints.push("DCA stop-loss threshold reached. Cutting the bull position.");
       executions.push(...(await unwindDcaPosition(state, price, config, "DCA stop-loss hit.")));
+      const exitExecution = executions.at(-1);
+      actionablePoints.push(
+        exitExecution?.status === "filled"
+          ? formatPnlMessage(exitExecution)
+          : "DCA stop-loss threshold reached, but the close order was not filled."
+      );
       return { executions, actionablePoints };
     }
   }
 
   if (analysis.regime !== "bull") {
     if (state.dca.baseAmount > 0 && config.dca.exitOnRegimeChange) {
-      actionablePoints.push("Bull regime ended. DCA strategy is unwinding the existing position.");
       executions.push(...(await unwindDcaPosition(state, price, config, "Bull regime lost.")));
+      const exitExecution = executions.at(-1);
+      actionablePoints.push(
+        exitExecution?.status === "filled"
+          ? formatPnlMessage(exitExecution)
+          : "Bull regime ended, but the DCA close order was not filled."
+      );
     } else {
       actionablePoints.push("DCA strategy is idle because the market is not in a bull regime.");
     }
@@ -136,7 +201,10 @@ export async function runDcaStrategy(
     baseAmount: round(nextBaseAmount),
     quoteSpent: round(nextQuoteSpent),
     avgEntryPrice: round(nextQuoteSpent / nextBaseAmount),
-    lastEntryPrice: execution.price
+    lastEntryPrice: execution.price,
+    trailingTakeProfitActive: false,
+    highestPriceSinceEntry: execution.price,
+    trailingStopPrice: 0
   };
 
   actionablePoints.push(

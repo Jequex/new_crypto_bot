@@ -86,6 +86,8 @@ export const config = {
       maxEntries: readNumber("DCA_MAX_ENTRIES", 5),
       stepPercent: readNumber("DCA_STEP_PERCENT", 0.02),
       takeProfitPercent: readNumber("DCA_TAKE_PROFIT_PERCENT", 0.04),
+      trailingTakeProfitEnabled: readBoolean("DCA_TRAILING_TAKE_PROFIT_ENABLED", true),
+      trailingStopPercent: readNumber("DCA_TRAILING_STOP_PERCENT", 0.015),
       stopLossPercent: readNumber("DCA_STOP_LOSS_PERCENT", 0.05),
       exitOnRegimeChange: readBoolean("DCA_EXIT_ON_REGIME_CHANGE", true)
     },
