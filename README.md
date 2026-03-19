@@ -11,12 +11,17 @@ The bot pulls recent candles through `ccxt` and combines these indicators:
 - `ADX` and `+DI/-DI` for trend strength and direction
 - `ATR / price` for volatility compression or expansion
 - `RSI` for momentum confirmation
+- `Volume / 20-period volume average` for participation confirmation
 
 By default it connects to Binance through `ccxt`, but you can switch to another supported exchange with `EXCHANGE_ID`.
 
 If trend strength is weak and both slope and volatility are muted, the bot marks the market as `sideways`. Otherwise it scores bullish and bearish evidence and picks the stronger regime.
 
 The final decision can also be confirmed by higher timeframes. If the higher timeframes align with the primary signal, confidence increases. If they conflict, confidence drops and the trend can be downgraded to `sideways`.
+
+An AI-enhanced layer also trains a lightweight TensorFlow.js classifier on recent candles and indicator features. That model adds a probabilistic vote for `bull`, `bear`, or `sideways`, which can strengthen or weaken the confirmed regime.
+
+If the neural model output is flat or the recent training data has poor class diversity, the bot falls back to a centroid-based classifier instead of silently returning a neutral prediction.
 
 ## Run the bot
 
@@ -34,6 +39,12 @@ npm run dev
 
 `npm run dev` now uses `nodemon`, so changes under `backend/src` restart the process automatically.
 
+To sanity-check the AI path against synthetic bull, bear, and sideways data, run:
+
+```bash
+npm run ai:smoke
+```
+
 ## Environment variables
 
 - `EXCHANGE_ID`: Exchange name supported by `ccxt`, for example `binance`, `kraken`, `coinbase`
@@ -46,6 +57,12 @@ npm run dev
 - `EMA_SLOPE_THRESHOLD`: Minimum normalized EMA slope for directional conviction
 - `EMA_SPREAD_THRESHOLD`: Minimum EMA20/EMA50 spread for bullish or bearish structure
 - `SIDEWAYS_ATR_THRESHOLD`: Maximum ATR/price ratio to support a sideways classification
+- `VOLUME_TREND_THRESHOLD`: Minimum current-volume to 20-period-average ratio to confirm a trend
+- `VOLUME_SIDEWAYS_THRESHOLD`: Maximum current-volume to 20-period-average ratio that supports a sideways call
+- `AI_ENABLED`: Enables the AI-enhanced strategy layer
+- `AI_EPOCHS`: Training epochs for the lightweight TensorFlow.js model
+- `AI_LOOKAHEAD_CANDLES`: How many candles ahead the AI model learns to predict
+- `AI_RETURN_THRESHOLD`: Return threshold used to label training samples as bull, bear, or sideways
 
 ## Example output
 
@@ -67,7 +84,9 @@ npm run dev
     "plusDI": 29.18,
     "minusDI": 15.02,
     "atrPercent": 0.0112,
-    "rsi": 61.45
+    "rsi": 61.45,
+    "volumeSma20": 18234.55,
+    "volumeRatio": 1.27
   },
   "confirmations": [
     {
@@ -83,12 +102,32 @@ npm run dev
       "aligned": false
     }
   ],
+  "aiStrategy": {
+    "enabled": true,
+    "mode": "neural",
+    "regime": "bull",
+    "confidence": 0.78,
+    "agreedWithPrimary": true,
+    "trainingSamples": 187,
+    "labelDistribution": {
+      "bull": 96,
+      "bear": 41,
+      "sideways": 50
+    },
+    "probabilities": {
+      "bull": 0.78,
+      "bear": 0.11,
+      "sideways": 0.11
+    }
+  },
   "reasons": [
     "EMA20 is above EMA50, indicating upward structure.",
     "Short-term EMA slope is positive.",
     "ADX confirms directional strength with positive DI leadership.",
     "Momentum is constructive based on RSI.",
-    "Most confirmation timeframes support the primary regime."
+    "Volume is expanding above its 20-period average, confirming participation.",
+    "Most confirmation timeframes support the primary regime.",
+    "The AI strategy agrees with the confirmed regime and increases conviction."
   ]
 }
 ```

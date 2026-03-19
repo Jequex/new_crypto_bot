@@ -24,6 +24,7 @@ function printAnalysis(): Promise<void> {
         config.symbol,
         config.interval,
         config.thresholds,
+        config.aiStrategy,
         confirmationInputs
       )
     )

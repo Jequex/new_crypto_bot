@@ -17,6 +17,16 @@ function readNumber(name: string, fallback: number): number {
   return parsedValue;
 }
 
+function readBoolean(name: string, fallback: boolean): boolean {
+  const rawValue = process.env[name];
+
+  if (!rawValue) {
+    return fallback;
+  }
+
+  return rawValue.toLowerCase() === "true";
+}
+
 function readList(name: string, fallback: string[]): string[] {
   const rawValue = process.env[name];
 
@@ -41,6 +51,14 @@ export const config = {
     adxTrend: readNumber("ADX_TREND_THRESHOLD", 20),
     emaSlope: readNumber("EMA_SLOPE_THRESHOLD", 0.0015),
     emaSpread: readNumber("EMA_SPREAD_THRESHOLD", 0.0025),
-    sidewaysAtr: readNumber("SIDEWAYS_ATR_THRESHOLD", 0.012)
+    sidewaysAtr: readNumber("SIDEWAYS_ATR_THRESHOLD", 0.012),
+    volumeTrend: readNumber("VOLUME_TREND_THRESHOLD", 1.15),
+    volumeSideways: readNumber("VOLUME_SIDEWAYS_THRESHOLD", 0.9)
+  },
+  aiStrategy: {
+    enabled: readBoolean("AI_ENABLED", true),
+    epochs: readNumber("AI_EPOCHS", 18),
+    lookaheadCandles: readNumber("AI_LOOKAHEAD_CANDLES", 3),
+    returnThreshold: readNumber("AI_RETURN_THRESHOLD", 0.006)
   }
 };

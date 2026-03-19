@@ -17,6 +17,25 @@ export interface TimeframeConfirmation {
   aligned: boolean;
 }
 
+export interface AiStrategyResult {
+  enabled: boolean;
+  mode: "neural" | "centroid" | "fallback";
+  regime: MarketRegime;
+  confidence: number;
+  agreedWithPrimary: boolean;
+  trainingSamples: number;
+  labelDistribution: {
+    bull: number;
+    bear: number;
+    sideways: number;
+  };
+  probabilities: {
+    bull: number;
+    bear: number;
+    sideways: number;
+  };
+}
+
 export interface RegimeAnalysis {
   symbol: string;
   interval: string;
@@ -35,7 +54,10 @@ export interface RegimeAnalysis {
     minusDI: number;
     atrPercent: number;
     rsi: number;
+    volumeSma20: number;
+    volumeRatio: number;
   };
   confirmations: TimeframeConfirmation[];
+  aiStrategy: AiStrategyResult;
   reasons: string[];
 }

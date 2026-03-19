@@ -5,11 +5,13 @@
   "description": "Periodic crypto pair analysis bot that classifies market regime as bull, bear, or sideways.",
   "main": "dist/index.js",
   "scripts": {
+    "ai:smoke": "npm run build && node scripts/ai-smoke.js",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
     "dev": "nodemon --watch src --ext ts --exec ts-node src/index.ts"
   },
   "dependencies": {
+    "@tensorflow/tfjs": "^4.22.0",
     "ccxt": "^4.4.78",
     "dotenv": "^16.4.7",
     "technicalindicators": "^3.1.0"
