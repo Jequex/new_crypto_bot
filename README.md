@@ -30,7 +30,7 @@ If the neural model output is flat or the recent training data has poor class di
 
 ## Automated trading behavior
 
-The trading engine is stateful and stores balances, active strategy state, and execution history in `backend/data/trading-state.json`.
+The trading engine is stateful and stores balances, active strategy state, and execution history in `trading-bot/data/trading-state.json`.
 
 ### DCA bot
 
@@ -47,19 +47,19 @@ The trading engine is stateful and stores balances, active strategy state, and e
 
 ## Run the bot
 
-1. Go to the backend folder.
+1. Go to the trading-bot folder.
 2. Copy `.env.example` to `.env` if you want custom settings.
 3. Install dependencies.
 4. Start the bot in watch mode.
 
 ```bash
-cd backend
+cd trading-bot
 npm install
 cp .env.example .env
 npm run dev
 ```
 
-`npm run dev` now uses `nodemon`, so changes under `backend/src` restart the process automatically.
+`npm run dev` now uses `nodemon`, so changes under `trading-bot/src` restart the process automatically.
 
 To sanity-check the AI path against synthetic bull, bear, and sideways data, run:
 
@@ -217,7 +217,7 @@ The main bot output now includes both `analysis` and `trading` objects.
 ## Actionable points
 
 1. Keep `TRADING_MODE=paper` and let the bot run long enough to generate several bull and non-bull regime changes.
-2. Review `backend/data/trading-state.json` after each session and verify that DCA is only active in bull regimes and that positions are closed whenever the regime stops being bullish.
+2. Review `trading-bot/data/trading-state.json` after each session and verify that DCA is only active in bull regimes and that positions are closed whenever the regime stops being bullish.
 3. Tune `TRADING_MIN_CONFIDENCE`, `DCA_STEP_PERCENT`, `DCA_TAKE_PROFIT_PERCENT`, and `DCA_STOP_LOSS_PERCENT` for the pair and timeframe you actually trade.
 4. Add backtests for both strategies before trusting the automation with capital.
 5. Validate fees, order size minimums, and precision rules for your chosen exchange and symbol.

@@ -1,4 +1,4 @@
-backend/node_modules/
-backend/dist/
-backend/.env
-backend/data/
+trading-bot/node_modules/
+trading-bot/dist/
+trading-bot/.env
+trading-bot/data/
