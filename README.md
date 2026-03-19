@@ -1,6 +1,6 @@
 # Crypto Regime Bot
 
-This project contains a lightweight TypeScript bot that periodically analyzes a crypto trading pair and classifies the current market regime as `bull`, `bear`, or `sideways`.
+This project contains a TypeScript bot that periodically analyzes a crypto trading pair, classifies the current market regime as `bull`, `bear`, or `sideways`, and can automate regime-based trading.
 
 ## How it works
 
@@ -21,7 +21,37 @@ The final decision can also be confirmed by higher timeframes. If the higher tim
 
 An AI-enhanced layer also trains a lightweight TensorFlow.js classifier on recent candles and indicator features. That model adds a probabilistic vote for `bull`, `bear`, or `sideways`, which can strengthen or weaken the confirmed regime.
 
+The trading layer uses those predictions as deployment rules:
+
+- `bull` with enough confidence activates the DCA bot
+- `sideways` with enough confidence activates the grid bot
+- `bear` disables new entries and can flatten open positions
+
 If the neural model output is flat or the recent training data has poor class diversity, the bot falls back to a centroid-based classifier instead of silently returning a neutral prediction.
+
+## Automated trading behavior
+
+The trading engine is stateful and stores balances, active strategy state, and execution history in `backend/data/trading-state.json`.
+
+### DCA bot
+
+- Used only when the confirmed regime is `bull`
+- Opens an initial tranche when bullish conviction clears the configured threshold
+- Adds more tranches only when price pulls back by the configured DCA step percentage
+- Exits on take-profit, stop-loss, or bull regime loss depending on config
+
+### Grid bot
+
+- Used only when the confirmed regime is `sideways`
+- Anchors a grid around the current price
+- Buys into lower grid levels and sells those filled levels on mean reversion upward
+- Re-anchors when price drifts too far and no grid inventory is open
+- Exits grid inventory when sideways conditions are lost, if configured
+
+### Trading mode
+
+- Default mode is `paper`
+- `live` mode is available, but requires exchange API credentials and should only be used after paper validation
 
 ## Run the bot
 
@@ -45,6 +75,8 @@ To sanity-check the AI path against synthetic bull, bear, and sideways data, run
 npm run ai:smoke
 ```
 
+The main bot output now includes both `analysis` and `trading` objects.
+
 ## Environment variables
 
 - `EXCHANGE_ID`: Exchange name supported by `ccxt`, for example `binance`, `kraken`, `coinbase`
@@ -63,71 +95,141 @@ npm run ai:smoke
 - `AI_EPOCHS`: Training epochs for the lightweight TensorFlow.js model
 - `AI_LOOKAHEAD_CANDLES`: How many candles ahead the AI model learns to predict
 - `AI_RETURN_THRESHOLD`: Return threshold used to label training samples as bull, bear, or sideways
+- `TRADING_ENABLED`: Enables the automated trading layer
+- `TRADING_MODE`: `paper` or `live`
+- `STATE_FILE_PATH`: Where persistent trading state is stored
+- `TRADING_MIN_CONFIDENCE`: Minimum confirmed regime confidence required to activate a strategy
+- `INITIAL_QUOTE_BALANCE`: Starting paper quote balance
+- `INITIAL_BASE_BALANCE`: Starting paper base balance
+- `TRADING_FEE_RATE`: Fee assumption for paper and local accounting
+- `MAX_TRADE_HISTORY`: Max stored trade executions in the state file
+- `CLOSE_ON_BEAR`: If `true`, bear regimes force the bot to stop opening new trades and flatten on strategy handoff
+- `DCA_TRANCHE_QUOTE`: Quote currency allocated per DCA buy
+- `DCA_MAX_ENTRIES`: Maximum number of DCA tranches in one bull cycle
+- `DCA_STEP_PERCENT`: Pullback percentage required before adding another DCA tranche
+- `DCA_TAKE_PROFIT_PERCENT`: DCA take-profit threshold from average entry
+- `DCA_STOP_LOSS_PERCENT`: DCA stop-loss threshold from average entry
+- `DCA_EXIT_ON_REGIME_CHANGE`: If `true`, closes DCA positions when the regime is no longer bullish
+- `GRID_LEVELS`: Number of long-only grid levels below the anchor
+- `GRID_SPACING_PERCENT`: Distance between grid levels
+- `GRID_QUOTE_PER_LEVEL`: Quote amount allocated per grid buy level
+- `GRID_REANCHOR_THRESHOLD_PERCENT`: Rebuilds the grid when price drifts too far from the anchor and inventory is flat
+- `GRID_EXIT_ON_REGIME_CHANGE`: If `true`, closes grid inventory when the market is no longer sideways
 
 ## Example output
 
 ```json
 {
-  "symbol": "BTC/USDT",
-  "interval": "1h",
-  "regime": "bull",
-  "primaryRegime": "bull",
-  "timestamp": "2026-03-19T10:00:00.000Z",
-  "confidence": 0.89,
-  "metrics": {
-    "lastClose": 84522.14,
-    "ema20": 84111.58,
-    "ema50": 83204.33,
-    "ema20Slope": 0.0031,
-    "emaSpreadPercent": 0.0109,
-    "adx": 27.44,
-    "plusDI": 29.18,
-    "minusDI": 15.02,
-    "atrPercent": 0.0112,
-    "rsi": 61.45,
-    "volumeSma20": 18234.55,
-    "volumeRatio": 1.27
-  },
-  "confirmations": [
-    {
-      "interval": "4h",
-      "regime": "bull",
-      "confidence": 0.91,
-      "aligned": true
-    },
-    {
-      "interval": "1d",
-      "regime": "sideways",
-      "confidence": 0.63,
-      "aligned": false
-    }
-  ],
-  "aiStrategy": {
-    "enabled": true,
-    "mode": "neural",
+  "analysis": {
+    "symbol": "BTC/USDT",
+    "interval": "1h",
     "regime": "bull",
-    "confidence": 0.78,
-    "agreedWithPrimary": true,
-    "trainingSamples": 187,
-    "labelDistribution": {
-      "bull": 96,
-      "bear": 41,
-      "sideways": 50
+    "primaryRegime": "bull",
+    "timestamp": "2026-03-19T10:00:00.000Z",
+    "confidence": 0.89,
+    "metrics": {
+      "lastClose": 84522.14,
+      "ema20": 84111.58,
+      "ema50": 83204.33,
+      "ema20Slope": 0.0031,
+      "emaSpreadPercent": 0.0109,
+      "adx": 27.44,
+      "plusDI": 29.18,
+      "minusDI": 15.02,
+      "atrPercent": 0.0112,
+      "rsi": 61.45,
+      "volumeSma20": 18234.55,
+      "volumeRatio": 1.27
     },
-    "probabilities": {
-      "bull": 0.78,
-      "bear": 0.11,
-      "sideways": 0.11
-    }
+    "confirmations": [
+      {
+        "interval": "4h",
+        "regime": "bull",
+        "confidence": 0.91,
+        "aligned": true
+      },
+      {
+        "interval": "1d",
+        "regime": "sideways",
+        "confidence": 0.63,
+        "aligned": false
+      }
+    ],
+    "aiStrategy": {
+      "enabled": true,
+      "mode": "neural",
+      "regime": "bull",
+      "confidence": 0.78,
+      "agreedWithPrimary": true,
+      "trainingSamples": 187,
+      "labelDistribution": {
+        "bull": 96,
+        "bear": 41,
+        "sideways": 50
+      },
+      "probabilities": {
+        "bull": 0.78,
+        "bear": 0.11,
+        "sideways": 0.11
+      }
+    },
+    "reasons": [
+      "EMA20 is above EMA50, indicating upward structure.",
+      "Short-term EMA slope is positive.",
+      "ADX confirms directional strength with positive DI leadership.",
+      "Momentum is constructive based on RSI.",
+      "Volume is expanding above its 20-period average, confirming participation.",
+      "Most confirmation timeframes support the primary regime.",
+      "The AI strategy agrees with the confirmed regime and increases conviction."
+    ]
   },
-  "reasons": [
-    "EMA20 is above EMA50, indicating upward structure.",
-    "Short-term EMA slope is positive.",
-    "ADX confirms directional strength with positive DI leadership.",
-    "Momentum is constructive based on RSI.",
-    "Volume is expanding above its 20-period average, confirming participation.",
-    "Most confirmation timeframes support the primary regime.",
-    "The AI strategy agrees with the confirmed regime and increases conviction."
-  ]
+  "trading": {
+    "enabled": true,
+    "mode": "paper",
+    "preferredStrategy": "dca",
+    "activeStrategy": "dca",
+    "price": 84522.14,
+    "executions": [
+      {
+        "id": "1710842400-ab12cd34",
+        "timestamp": "2026-03-19T10:00:00.000Z",
+        "mode": "paper",
+        "strategy": "dca",
+        "side": "buy",
+        "price": 84522.14,
+        "baseAmount": 0.0029578,
+        "quoteAmount": 250,
+        "feeAmount": 0.25,
+        "status": "filled",
+        "reason": "Open DCA bull position."
+      }
+    ],
+    "balances": {
+      "base": 0.0029578,
+      "quote": 9749.75,
+      "feesPaid": 0.25
+    },
+    "dca": {
+      "entries": 1,
+      "baseAmount": 0.0029578,
+      "quoteSpent": 250.25,
+      "avgEntryPrice": 84522.14,
+      "lastEntryPrice": 84522.14
+    },
+    "grid": null,
+    "actionablePoints": [
+      "Bull regime confirmed. Opened the first DCA tranche."
+    ]
+  }
 }
 ```
+
+## Actionable points
+
+1. Keep `TRADING_MODE=paper` and let the bot run long enough to generate several bull and sideways cycles.
+2. Review `backend/data/trading-state.json` after each session and verify that DCA is only active in bull regimes and grid is only active in sideways regimes.
+3. Tune `TRADING_MIN_CONFIDENCE`, `DCA_STEP_PERCENT`, `GRID_SPACING_PERCENT`, and `GRID_REANCHOR_THRESHOLD_PERCENT` for the pair and timeframe you actually trade.
+4. Add backtests for both strategies before trusting the automation with capital.
+5. Validate fees, order size minimums, and precision rules for your chosen exchange and symbol.
+6. Add alerting for skipped trades, strategy switches, and stop-loss exits.
+7. Only switch to `TRADING_MODE=live` after paper results and exchange constraints have been validated.

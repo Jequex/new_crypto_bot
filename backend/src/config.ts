@@ -40,6 +40,16 @@ function readList(name: string, fallback: string[]): string[] {
     .filter((value) => value.length > 0);
 }
 
+function readTradingMode(name: string, fallback: "paper" | "live"): "paper" | "live" {
+  const rawValue = process.env[name];
+
+  if (rawValue === "paper" || rawValue === "live") {
+    return rawValue;
+  }
+
+  return fallback;
+}
+
 export const config = {
   exchangeId: process.env.EXCHANGE_ID ?? "binance",
   symbol: process.env.SYMBOL ?? "BTC/USDT",
@@ -60,5 +70,31 @@ export const config = {
     epochs: readNumber("AI_EPOCHS", 18),
     lookaheadCandles: readNumber("AI_LOOKAHEAD_CANDLES", 3),
     returnThreshold: readNumber("AI_RETURN_THRESHOLD", 0.006)
+  },
+  trading: {
+    enabled: readBoolean("TRADING_ENABLED", true),
+    mode: readTradingMode("TRADING_MODE", "paper"),
+    stateFilePath: process.env.STATE_FILE_PATH ?? "data/trading-state.json",
+    minConfidence: readNumber("TRADING_MIN_CONFIDENCE", 0.62),
+    initialQuoteBalance: readNumber("INITIAL_QUOTE_BALANCE", 10000),
+    initialBaseBalance: readNumber("INITIAL_BASE_BALANCE", 0),
+    feeRate: readNumber("TRADING_FEE_RATE", 0.001),
+    maxTradeHistory: readNumber("MAX_TRADE_HISTORY", 200),
+    closeOnBear: readBoolean("CLOSE_ON_BEAR", true),
+    dca: {
+      trancheQuote: readNumber("DCA_TRANCHE_QUOTE", 250),
+      maxEntries: readNumber("DCA_MAX_ENTRIES", 5),
+      stepPercent: readNumber("DCA_STEP_PERCENT", 0.02),
+      takeProfitPercent: readNumber("DCA_TAKE_PROFIT_PERCENT", 0.04),
+      stopLossPercent: readNumber("DCA_STOP_LOSS_PERCENT", 0.05),
+      exitOnRegimeChange: readBoolean("DCA_EXIT_ON_REGIME_CHANGE", true)
+    },
+    grid: {
+      levels: readNumber("GRID_LEVELS", 4),
+      spacingPercent: readNumber("GRID_SPACING_PERCENT", 0.01),
+      quotePerLevel: readNumber("GRID_QUOTE_PER_LEVEL", 150),
+      reanchorThresholdPercent: readNumber("GRID_REANCHOR_THRESHOLD_PERCENT", 0.03),
+      exitOnRegimeChange: readBoolean("GRID_EXIT_ON_REGIME_CHANGE", true)
+    }
   }
 };

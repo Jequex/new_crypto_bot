@@ -1,7 +1,7 @@
 import ccxt from "ccxt";
 import type { Exchange, OHLCV } from "ccxt";
 
-import { Candle } from "../types";
+import { Candle, OrderSide } from "../types";
 
 type ExchangeConstructor = new (options?: Record<string, unknown>) => Exchange;
 
@@ -16,7 +16,10 @@ function createExchange(exchangeId: string): Exchange {
   }
 
   return new ExchangeClass({
-    enableRateLimit: true
+    enableRateLimit: true,
+    apiKey: process.env.EXCHANGE_API_KEY,
+    secret: process.env.EXCHANGE_API_SECRET,
+    password: process.env.EXCHANGE_API_PASSWORD
   });
 }
 
@@ -46,4 +49,20 @@ export async function fetchCandles(
     volume: Number(entry[5]),
     closeTime: Number(entry[0])
   }));
+}
+
+export async function placeMarketOrder(
+  exchangeId: string,
+  symbol: string,
+  side: OrderSide,
+  amount: number
+): Promise<unknown> {
+  const exchange = getExchange(exchangeId);
+
+  if (!process.env.EXCHANGE_API_KEY || !process.env.EXCHANGE_API_SECRET) {
+    throw new Error("Live trading requires EXCHANGE_API_KEY and EXCHANGE_API_SECRET.");
+  }
+
+  await exchange.loadMarkets();
+  return exchange.createOrder(symbol, "market", side, amount);
 }
