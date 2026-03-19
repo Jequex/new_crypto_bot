@@ -3,9 +3,29 @@ import { fetchCandles } from "./services/exchangeClient";
 import { analyzeMarketRegime } from "./services/marketRegimeAnalyzer";
 
 function printAnalysis(): Promise<void> {
-  return fetchCandles(config.exchangeId, config.symbol, config.interval, config.lookbackLimit)
-    .then((candles) =>
-      analyzeMarketRegime(candles, config.symbol, config.interval, config.thresholds)
+  const confirmationIntervals = config.confirmationIntervals.filter(
+    (candidate) => candidate !== config.interval
+  );
+
+  return Promise.all([
+    fetchCandles(config.exchangeId, config.symbol, config.interval, config.lookbackLimit),
+    ...confirmationIntervals.map((confirmationInterval) =>
+      fetchCandles(config.exchangeId, config.symbol, confirmationInterval, config.lookbackLimit).then(
+        (candles) => ({
+          interval: confirmationInterval,
+          candles
+        })
+      )
+    )
+  ])
+    .then(([candles, ...confirmationInputs]) =>
+      analyzeMarketRegime(
+        candles,
+        config.symbol,
+        config.interval,
+        config.thresholds,
+        confirmationInputs
+      )
     )
     .then((analysis) => {
       console.log(JSON.stringify(analysis, null, 2));
@@ -18,6 +38,7 @@ function printAnalysis(): Promise<void> {
             exchangeId: config.exchangeId,
             symbol: config.symbol,
             interval: config.interval,
+            confirmationIntervals,
             error: error.message
           },
           null,

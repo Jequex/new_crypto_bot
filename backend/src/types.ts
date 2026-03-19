@@ -10,10 +10,18 @@ export interface Candle {
   closeTime: number;
 }
 
+export interface TimeframeConfirmation {
+  interval: string;
+  regime: MarketRegime;
+  confidence: number;
+  aligned: boolean;
+}
+
 export interface RegimeAnalysis {
   symbol: string;
   interval: string;
   regime: MarketRegime;
+  primaryRegime: MarketRegime;
   timestamp: string;
   confidence: number;
   metrics: {
@@ -28,5 +36,6 @@ export interface RegimeAnalysis {
     atrPercent: number;
     rsi: number;
   };
+  confirmations: TimeframeConfirmation[];
   reasons: string[];
 }

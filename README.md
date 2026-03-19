@@ -16,6 +16,8 @@ By default it connects to Binance through `ccxt`, but you can switch to another 
 
 If trend strength is weak and both slope and volatility are muted, the bot marks the market as `sideways`. Otherwise it scores bullish and bearish evidence and picks the stronger regime.
 
+The final decision can also be confirmed by higher timeframes. If the higher timeframes align with the primary signal, confidence increases. If they conflict, confidence drops and the trend can be downgraded to `sideways`.
+
 ## Run the bot
 
 1. Go to the backend folder.
@@ -37,6 +39,7 @@ npm run dev
 - `EXCHANGE_ID`: Exchange name supported by `ccxt`, for example `binance`, `kraken`, `coinbase`
 - `SYMBOL`: Trading pair in `ccxt` format, for example `BTC/USDT`
 - `INTERVAL`: Exchange timeframe, for example `15m`, `1h`, `4h`
+- `CONFIRMATION_INTERVALS`: Comma-separated higher timeframes used to confirm the primary signal, for example `4h,1d`
 - `LOOKBACK_LIMIT`: Number of candles to fetch for each analysis cycle
 - `ANALYSIS_INTERVAL_MS`: How often to re-run the analysis
 - `ADX_TREND_THRESHOLD`: Minimum ADX to treat the market as trending
@@ -48,9 +51,10 @@ npm run dev
 
 ```json
 {
-  "symbol": "BTCUSDT",
+  "symbol": "BTC/USDT",
   "interval": "1h",
   "regime": "bull",
+  "primaryRegime": "bull",
   "timestamp": "2026-03-19T10:00:00.000Z",
   "confidence": 0.89,
   "metrics": {
@@ -65,11 +69,26 @@ npm run dev
     "atrPercent": 0.0112,
     "rsi": 61.45
   },
+  "confirmations": [
+    {
+      "interval": "4h",
+      "regime": "bull",
+      "confidence": 0.91,
+      "aligned": true
+    },
+    {
+      "interval": "1d",
+      "regime": "sideways",
+      "confidence": 0.63,
+      "aligned": false
+    }
+  ],
   "reasons": [
     "EMA20 is above EMA50, indicating upward structure.",
     "Short-term EMA slope is positive.",
     "ADX confirms directional strength with positive DI leadership.",
-    "Momentum is constructive based on RSI."
+    "Momentum is constructive based on RSI.",
+    "Most confirmation timeframes support the primary regime."
   ]
 }
 ```

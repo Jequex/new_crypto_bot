@@ -1,6 +1,6 @@
 import { ADX, ATR, EMA, RSI } from "technicalindicators";
 
-import { Candle, MarketRegime, RegimeAnalysis } from "../types";
+import { Candle, MarketRegime, RegimeAnalysis, TimeframeConfirmation } from "../types";
 
 interface Thresholds {
   adxTrend: number;
@@ -17,12 +17,26 @@ function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(value, max));
 }
 
-export function analyzeMarketRegime(
+interface BaseRegimeAnalysis {
+  symbol: string;
+  interval: string;
+  regime: MarketRegime;
+  confidence: number;
+  metrics: RegimeAnalysis["metrics"];
+  reasons: string[];
+}
+
+interface ConfirmationInput {
+  interval: string;
+  candles: Candle[];
+}
+
+function analyzeSingleTimeframe(
   candles: Candle[],
   symbol: string,
   interval: string,
   thresholds: Thresholds
-): RegimeAnalysis {
+): BaseRegimeAnalysis {
   if (candles.length < 60) {
     throw new Error("At least 60 candles are required to classify the market regime.");
   }
@@ -131,7 +145,6 @@ export function analyzeMarketRegime(
     symbol,
     interval,
     regime,
-    timestamp: new Date().toISOString(),
     confidence: round(confidence),
     metrics: {
       lastClose: round(lastClose),
@@ -145,6 +158,83 @@ export function analyzeMarketRegime(
       atrPercent: round(atrPercent),
       rsi: round(rsi)
     },
+    reasons
+  };
+}
+
+export function analyzeMarketRegime(
+  candles: Candle[],
+  symbol: string,
+  interval: string,
+  thresholds: Thresholds,
+  confirmationInputs: ConfirmationInput[] = []
+): RegimeAnalysis {
+  const primaryAnalysis = analyzeSingleTimeframe(candles, symbol, interval, thresholds);
+  const confirmationAnalyses = confirmationInputs.map((confirmation) =>
+    analyzeSingleTimeframe(confirmation.candles, symbol, confirmation.interval, thresholds)
+  );
+
+  let finalRegime = primaryAnalysis.regime;
+  let finalConfidence = primaryAnalysis.confidence;
+  const reasons = [...primaryAnalysis.reasons];
+
+  const alignedCount = confirmationAnalyses.filter(
+    (confirmation) => confirmation.regime === primaryAnalysis.regime
+  ).length;
+  const opposingCount = confirmationAnalyses.filter(
+    (confirmation) =>
+      confirmation.regime !== primaryAnalysis.regime && confirmation.regime !== "sideways"
+  ).length;
+  const sidewaysCount = confirmationAnalyses.filter(
+    (confirmation) => confirmation.regime === "sideways"
+  ).length;
+
+  if (confirmationAnalyses.length > 0) {
+    if (primaryAnalysis.regime === "sideways") {
+      if (alignedCount > 0) {
+        finalConfidence = clamp(primaryAnalysis.confidence + alignedCount * 0.04, 0.5, 0.95);
+        reasons.push(`Sideways structure is confirmed by ${alignedCount} higher timeframe(s).`);
+      } else if (opposingCount > 0) {
+        finalConfidence = clamp(primaryAnalysis.confidence - 0.1, 0.5, 0.9);
+        reasons.push("Higher timeframes are trending, so the sideways reading is lower conviction.");
+      }
+    } else if (alignedCount === confirmationAnalyses.length) {
+      finalConfidence = clamp(primaryAnalysis.confidence + confirmationAnalyses.length * 0.05, 0.5, 0.99);
+      reasons.push("All confirmation timeframes agree with the primary regime.");
+    } else if (alignedCount > opposingCount) {
+      finalConfidence = clamp(primaryAnalysis.confidence + alignedCount * 0.03, 0.5, 0.99);
+      reasons.push("Most confirmation timeframes support the primary regime.");
+    } else if (opposingCount > alignedCount) {
+      finalConfidence = clamp(primaryAnalysis.confidence - opposingCount * 0.08, 0.5, 0.95);
+      reasons.push("Higher timeframes conflict with the primary trend, reducing conviction.");
+
+      if (opposingCount >= Math.ceil(confirmationAnalyses.length / 2)) {
+        finalRegime = "sideways";
+        finalConfidence = clamp(finalConfidence, 0.5, 0.8);
+        reasons.push("The trend is downgraded to sideways until higher timeframes align.");
+      }
+    } else if (sidewaysCount === confirmationAnalyses.length) {
+      finalConfidence = clamp(primaryAnalysis.confidence - 0.08, 0.5, 0.95);
+      reasons.push("Higher timeframes are neutral, so the trend signal remains tentative.");
+    }
+  }
+
+  const confirmations: TimeframeConfirmation[] = confirmationAnalyses.map((confirmation) => ({
+    interval: confirmation.interval,
+    regime: confirmation.regime,
+    confidence: confirmation.confidence,
+    aligned: confirmation.regime === finalRegime
+  }));
+
+  return {
+    symbol: primaryAnalysis.symbol,
+    interval: primaryAnalysis.interval,
+    regime: finalRegime,
+    primaryRegime: primaryAnalysis.regime,
+    timestamp: new Date().toISOString(),
+    confidence: round(finalConfidence),
+    metrics: primaryAnalysis.metrics,
+    confirmations,
     reasons
   };
 }
