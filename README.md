@@ -24,8 +24,7 @@ An AI-enhanced layer also trains a lightweight TensorFlow.js classifier on recen
 The trading layer uses those predictions as deployment rules:
 
 - `bull` with enough confidence activates the DCA bot
-- `sideways` with enough confidence activates the grid bot
-- `bear` disables new entries and can flatten open positions
+- any non-bull regime disables new entries and closes open DCA positions
 
 If the neural model output is flat or the recent training data has poor class diversity, the bot falls back to a centroid-based classifier instead of silently returning a neutral prediction.
 
@@ -40,14 +39,6 @@ The trading engine is stateful and stores balances, active strategy state, and e
 - Adds more tranches only when price pulls back by the configured DCA step percentage
 - Can activate trailing take-profit once the profit trigger is reached
 - Exits on trailing take-profit, fixed take-profit, stop-loss, or bull regime loss depending on config
-
-### Grid bot
-
-- Used only when the confirmed regime is `sideways`
-- Anchors a grid around the current price
-- Buys into lower grid levels and sells those filled levels on mean reversion upward
-- Re-anchors when price drifts too far and no grid inventory is open
-- Exits grid inventory when sideways conditions are lost, if configured
 
 ### Trading mode
 
@@ -104,7 +95,7 @@ The main bot output now includes both `analysis` and `trading` objects.
 - `INITIAL_BASE_BALANCE`: Starting paper base balance
 - `TRADING_FEE_RATE`: Fee assumption for paper and local accounting
 - `MAX_TRADE_HISTORY`: Max stored trade executions in the state file
-- `CLOSE_ON_BEAR`: If `true`, bear regimes force the bot to stop opening new trades and flatten on strategy handoff
+- `CLOSE_ON_BEAR`: If `true`, bear regimes force the bot to stop opening new trades and flatten any open DCA position
 - `DCA_TRANCHE_QUOTE`: Quote currency allocated per DCA buy
 - `DCA_MAX_ENTRIES`: Maximum number of DCA tranches in one bull cycle
 - `DCA_STEP_PERCENT`: Pullback percentage required before adding another DCA tranche
@@ -112,12 +103,6 @@ The main bot output now includes both `analysis` and `trading` objects.
 - `DCA_TRAILING_TAKE_PROFIT_ENABLED`: Enables trailing take-profit after the take-profit trigger is reached
 - `DCA_TRAILING_STOP_PERCENT`: Distance between the highest tracked price and the trailing exit stop
 - `DCA_STOP_LOSS_PERCENT`: DCA stop-loss threshold from average entry
-- `DCA_EXIT_ON_REGIME_CHANGE`: If `true`, closes DCA positions when the regime is no longer bullish
-- `GRID_LEVELS`: Number of long-only grid levels below the anchor
-- `GRID_SPACING_PERCENT`: Distance between grid levels
-- `GRID_QUOTE_PER_LEVEL`: Quote amount allocated per grid buy level
-- `GRID_REANCHOR_THRESHOLD_PERCENT`: Rebuilds the grid when price drifts too far from the anchor and inventory is flat
-- `GRID_EXIT_ON_REGIME_CHANGE`: If `true`, closes grid inventory when the market is no longer sideways
 
 ## Example output
 
@@ -217,9 +202,11 @@ The main bot output now includes both `analysis` and `trading` objects.
       "baseAmount": 0.0029578,
       "quoteSpent": 250.25,
       "avgEntryPrice": 84522.14,
-      "lastEntryPrice": 84522.14
+      "lastEntryPrice": 84522.14,
+      "trailingTakeProfitActive": false,
+      "highestPriceSinceEntry": 84522.14,
+      "trailingStopPrice": 0
     },
-    "grid": null,
     "actionablePoints": [
       "Bull regime confirmed. Opened the first DCA tranche."
     ]
@@ -229,10 +216,10 @@ The main bot output now includes both `analysis` and `trading` objects.
 
 ## Actionable points
 
-1. Keep `TRADING_MODE=paper` and let the bot run long enough to generate several bull and sideways cycles.
-2. Review `backend/data/trading-state.json` after each session and verify that DCA is only active in bull regimes and grid is only active in sideways regimes.
-3. Tune `TRADING_MIN_CONFIDENCE`, `DCA_STEP_PERCENT`, `GRID_SPACING_PERCENT`, and `GRID_REANCHOR_THRESHOLD_PERCENT` for the pair and timeframe you actually trade.
+1. Keep `TRADING_MODE=paper` and let the bot run long enough to generate several bull and non-bull regime changes.
+2. Review `backend/data/trading-state.json` after each session and verify that DCA is only active in bull regimes and that positions are closed whenever the regime stops being bullish.
+3. Tune `TRADING_MIN_CONFIDENCE`, `DCA_STEP_PERCENT`, `DCA_TAKE_PROFIT_PERCENT`, and `DCA_STOP_LOSS_PERCENT` for the pair and timeframe you actually trade.
 4. Add backtests for both strategies before trusting the automation with capital.
 5. Validate fees, order size minimums, and precision rules for your chosen exchange and symbol.
-6. Add alerting for skipped trades, strategy switches, and stop-loss exits.
+6. Add alerting for skipped trades, bull-entry signals, regime-change exits, and stop-loss exits.
 7. Only switch to `TRADING_MODE=live` after paper results and exchange constraints have been validated.

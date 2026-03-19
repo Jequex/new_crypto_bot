@@ -10,7 +10,7 @@ interface TradingConfig {
 }
 
 interface TradeRequest {
-  strategy: "dca" | "grid";
+  strategy: "dca";
   side: OrderSide;
   price: number;
   baseAmount: number;

@@ -88,15 +88,7 @@ export const config = {
       takeProfitPercent: readNumber("DCA_TAKE_PROFIT_PERCENT", 0.04),
       trailingTakeProfitEnabled: readBoolean("DCA_TRAILING_TAKE_PROFIT_ENABLED", true),
       trailingStopPercent: readNumber("DCA_TRAILING_STOP_PERCENT", 0.015),
-      stopLossPercent: readNumber("DCA_STOP_LOSS_PERCENT", 0.05),
-      exitOnRegimeChange: readBoolean("DCA_EXIT_ON_REGIME_CHANGE", true)
-    },
-    grid: {
-      levels: readNumber("GRID_LEVELS", 4),
-      spacingPercent: readNumber("GRID_SPACING_PERCENT", 0.01),
-      quotePerLevel: readNumber("GRID_QUOTE_PER_LEVEL", 150),
-      reanchorThresholdPercent: readNumber("GRID_REANCHOR_THRESHOLD_PERCENT", 0.03),
-      exitOnRegimeChange: readBoolean("GRID_EXIT_ON_REGIME_CHANGE", true)
+      stopLossPercent: readNumber("DCA_STOP_LOSS_PERCENT", 0.05)
     }
   }
 };

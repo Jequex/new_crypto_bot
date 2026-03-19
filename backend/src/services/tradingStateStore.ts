@@ -31,7 +31,6 @@ function initialState(symbol: string, config: TradingStoreConfig): TradingState 
       highestPriceSinceEntry: 0,
       trailingStopPrice: 0
     },
-    grid: null,
     tradeHistory: [],
     lastUpdated: new Date().toISOString()
   };

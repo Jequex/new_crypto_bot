@@ -14,7 +14,6 @@ interface TradingConfig {
     trailingTakeProfitEnabled: boolean;
     trailingStopPercent: number;
     stopLossPercent: number;
-    exitOnRegimeChange: boolean;
   };
 }
 
@@ -27,6 +26,14 @@ function formatPnlMessage(execution: TradeExecution): string {
   const realizedPnlPercent = execution.realizedPnlPercent ?? 0;
 
   return `DCA position closed at ${execution.price} with PnL ${realizedPnlQuote} (${realizedPnlPercent}%).`;
+}
+
+function dcaStopLossPrice(price: number, config: TradingConfig): number {
+  return round(price * (1 - config.dca.stopLossPercent));
+}
+
+function dcaTakeProfitPrice(price: number, config: TradingConfig): number {
+  return round(price * (1 + config.dca.takeProfitPercent));
 }
 
 function resetDcaState(state: TradingState): void {
@@ -81,6 +88,8 @@ export async function unwindDcaPosition(
     const realizedPnlPercent = quoteSpent > 0 ? round((realizedPnlQuote / quoteSpent) * 100) : 0;
 
     execution.entryPrice = round(entryPrice);
+    execution.stopLossPrice = dcaStopLossPrice(entryPrice, config);
+    execution.takeProfitPrice = dcaTakeProfitPrice(entryPrice, config);
     execution.realizedPnlQuote = realizedPnlQuote;
     execution.realizedPnlPercent = realizedPnlPercent;
     execution.note = formatPnlMessage(execution);
@@ -147,7 +156,7 @@ export async function runDcaStrategy(
   }
 
   if (analysis.regime !== "bull") {
-    if (state.dca.baseAmount > 0 && config.dca.exitOnRegimeChange) {
+    if (state.dca.baseAmount > 0) {
       executions.push(...(await unwindDcaPosition(state, price, config, "Bull regime lost.")));
       const exitExecution = executions.at(-1);
       actionablePoints.push(
