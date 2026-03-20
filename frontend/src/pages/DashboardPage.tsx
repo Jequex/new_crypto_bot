@@ -4,6 +4,8 @@ import { fetchRuntimeConfig, fetchTradingStates } from "../api";
 import { StateCard } from "../components/StateCard";
 import { TradingStateSummary } from "../types";
 
+const refreshIntervalMs = 15000;
+
 export function DashboardPage() {
   const [states, setStates] = useState<TradingStateSummary[]>([]);
   const [initialQuoteBalance, setInitialQuoteBalance] = useState(0);
@@ -15,27 +17,33 @@ export function DashboardPage() {
   useEffect(() => {
     let cancelled = false;
 
-    Promise.all([fetchTradingStates(), fetchRuntimeConfig()])
-      .then(([statesResponse, runtimeConfig]) => {
-        if (!cancelled) {
-          setStates(statesResponse);
-          setInitialQuoteBalance(runtimeConfig.initialQuoteBalance);
-          setError(null);
-        }
-      })
-      .catch((requestError: Error) => {
-        if (!cancelled) {
-          setError(requestError.message);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setIsLoading(false);
-        }
-      });
+    const loadDashboard = () => {
+      Promise.all([fetchTradingStates(), fetchRuntimeConfig()])
+        .then(([statesResponse, runtimeConfig]) => {
+          if (!cancelled) {
+            setStates(statesResponse);
+            setInitialQuoteBalance(runtimeConfig.initialQuoteBalance);
+            setError(null);
+          }
+        })
+        .catch((requestError: Error) => {
+          if (!cancelled) {
+            setError(requestError.message);
+          }
+        })
+        .finally(() => {
+          if (!cancelled) {
+            setIsLoading(false);
+          }
+        });
+    };
+
+    loadDashboard();
+    const intervalId = window.setInterval(loadDashboard, refreshIntervalMs);
 
     return () => {
       cancelled = true;
+      window.clearInterval(intervalId);
     };
   }, []);
 

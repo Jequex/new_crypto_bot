@@ -6,6 +6,7 @@ import { formatNumber, formatPercent, formatTimestamp } from "../lib/format";
 import { TradesResponse } from "../types";
 
 const pageSize = 10;
+const refreshIntervalMs = 15000;
 
 export function TradesPage() {
   const params = useParams<{ symbol: string }>();
@@ -27,27 +28,33 @@ export function TradesPage() {
     let cancelled = false;
     setIsLoading(true);
 
-    fetchTrades(symbol, page, pageSize)
-      .then((nextResponse) => {
-        if (!cancelled) {
-          setResponse(nextResponse);
-          setError(null);
-        }
-      })
-      .catch((requestError: Error) => {
-        if (!cancelled) {
-          setError(requestError.message);
-          setResponse(null);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setIsLoading(false);
-        }
-      });
+    const loadTrades = () => {
+      fetchTrades(symbol, page, pageSize)
+        .then((nextResponse) => {
+          if (!cancelled) {
+            setResponse(nextResponse);
+            setError(null);
+          }
+        })
+        .catch((requestError: Error) => {
+          if (!cancelled) {
+            setError(requestError.message);
+            setResponse(null);
+          }
+        })
+        .finally(() => {
+          if (!cancelled) {
+            setIsLoading(false);
+          }
+        });
+    };
+
+    loadTrades();
+    const intervalId = window.setInterval(loadTrades, refreshIntervalMs);
 
     return () => {
       cancelled = true;
+      window.clearInterval(intervalId);
     };
   }, [page, symbol]);
 
