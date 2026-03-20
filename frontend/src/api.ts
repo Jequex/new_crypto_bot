@@ -1,4 +1,4 @@
-import { TradesResponse, TradingStateSummary } from "./types";
+import { RuntimeConfig, TradesResponse, TradingStateSummary } from "./types";
 
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, "") ?? "";
 
@@ -15,6 +15,10 @@ async function requestJson<T>(path: string): Promise<T> {
 
 export function fetchTradingStates(): Promise<TradingStateSummary[]> {
   return requestJson<TradingStateSummary[]>("/api/trading-states");
+}
+
+export function fetchRuntimeConfig(): Promise<RuntimeConfig> {
+  return requestJson<RuntimeConfig>("/api/runtime-config");
 }
 
 export function fetchTrades(symbol: string, page: number, pageSize: number): Promise<TradesResponse> {

@@ -5,11 +5,15 @@ import { TradingStateSummary } from "../types";
 
 interface StateCardProps {
   state: TradingStateSummary;
+  initialQuoteBalance: number;
 }
 
-export function StateCard({ state }: StateCardProps) {
+export function StateCard({ state, initialQuoteBalance }: StateCardProps) {
   const hasOpenPosition = state.dca.entries > 0 || state.dca.baseAmount > 0;
   const trailingArmed = state.dca.trailingTakeProfitActive;
+  const pnlQuote = state.balances.quote - initialQuoteBalance;
+  const pnlPercent = initialQuoteBalance > 0 ? (pnlQuote / initialQuoteBalance) * 100 : 0;
+  const pnlClassName = pnlQuote < 0 ? "pnl pnl--negative" : "pnl pnl--positive";
 
   return (
     <Link className="state-card" to={`/pairs/${encodeURIComponent(state.symbol)}`}>
@@ -67,12 +71,16 @@ export function StateCard({ state }: StateCardProps) {
           <strong>{formatNumber(state.dca.avgEntryPrice, 8)}</strong>
         </div>
         <div>
-          <p className="label">Base amount</p>
-          <strong>{formatNumber(state.dca.baseAmount, 6)}</strong>
+          <p className="label">PnL</p>
+          <strong className={pnlClassName}>{formatNumber(pnlQuote, 2)}</strong>
         </div>
         <div>
           <p className="label">Fees paid</p>
           <strong>{formatNumber(state.balances.feesPaid, 4)}</strong>
+        </div>
+        <div>
+          <p className="label">PnL %</p>
+          <strong className={pnlClassName}>{formatNumber(pnlPercent, 2)}%</strong>
         </div>
         <div>
           <p className="label">Trailing stop</p>

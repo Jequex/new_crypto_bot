@@ -25,6 +25,17 @@ export interface TradingStateSummary {
   lastUpdated: string;
 }
 
+export interface RuntimeConfig {
+  exchangeId: string;
+  symbol: string;
+  symbols: string[];
+  interval: string;
+  confirmationIntervals: string[];
+  analysisIntervalMs: number;
+  initialQuoteBalance: number;
+  dcaTrancheQuote: number;
+}
+
 export interface TradeItem {
   id: string;
   timestamp: string;

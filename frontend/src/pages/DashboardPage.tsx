@@ -1,11 +1,12 @@
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
 
-import { fetchTradingStates } from "../api";
+import { fetchRuntimeConfig, fetchTradingStates } from "../api";
 import { StateCard } from "../components/StateCard";
 import { TradingStateSummary } from "../types";
 
 export function DashboardPage() {
   const [states, setStates] = useState<TradingStateSummary[]>([]);
+  const [initialQuoteBalance, setInitialQuoteBalance] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -14,10 +15,11 @@ export function DashboardPage() {
   useEffect(() => {
     let cancelled = false;
 
-    fetchTradingStates()
-      .then((response) => {
+    Promise.all([fetchTradingStates(), fetchRuntimeConfig()])
+      .then(([statesResponse, runtimeConfig]) => {
         if (!cancelled) {
-          setStates(response);
+          setStates(statesResponse);
+          setInitialQuoteBalance(runtimeConfig.initialQuoteBalance);
           setError(null);
         }
       })
@@ -120,7 +122,11 @@ export function DashboardPage() {
       {!isLoading && !error ? (
         <section className="cards-grid">
           {filteredStates.map((state) => (
-            <StateCard key={`${state.symbol}-${state.mode}`} state={state} />
+            <StateCard
+              initialQuoteBalance={initialQuoteBalance}
+              key={`${state.symbol}-${state.mode}`}
+              state={state}
+            />
           ))}
           {filteredStates.length === 0 ? (
             <div className="status-panel">No trading states matched your search.</div>
