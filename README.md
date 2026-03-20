@@ -79,6 +79,9 @@ The compose stack includes:
 
 - `db`: PostgreSQL 16 with a persistent named volume
 - `trading-bot`: the compiled Node.js bot process
+- `frontend`: the React dashboard served through nginx
+
+When the compose stack is running, open the frontend at `http://localhost:8080`.
 
 ## Frontend app
 
@@ -93,6 +96,14 @@ npm run dev
 ```
 
 The Vite dev server starts on `http://localhost:5173` and proxies API calls to `http://localhost:3000`.
+
+For the containerized frontend, use:
+
+```bash
+docker compose up --build
+```
+
+Then open `http://localhost:8080`.
 
 Frontend routes:
 
