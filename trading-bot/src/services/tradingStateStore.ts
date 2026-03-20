@@ -1,4 +1,4 @@
-import { TradeExecution, TradingState } from "../types";
+import { TradeExecution, TradingMode, TradingState } from "../types";
 import { withDatabaseClient } from "./database";
 
 interface TradingStoreConfig {
@@ -73,6 +73,43 @@ function mapTradeExecution(row: Record<string, unknown>): TradeExecution {
   };
 }
 
+async function loadTradeHistory(
+  client: Parameters<Parameters<typeof withDatabaseClient>[1]>[0],
+  symbol: string,
+  mode: TradingMode,
+  limit: number
+): Promise<TradeExecution[]> {
+  const tradeHistoryResult = await client.query<Record<string, unknown>>(
+    `
+      SELECT
+        id,
+        timestamp,
+        mode,
+        strategy,
+        side,
+        price,
+        entry_price AS "entryPrice",
+        stop_loss_price AS "stopLossPrice",
+        take_profit_price AS "takeProfitPrice",
+        base_amount AS "baseAmount",
+        quote_amount AS "quoteAmount",
+        fee_amount AS "feeAmount",
+        realized_pnl_quote AS "realizedPnlQuote",
+        realized_pnl_percent AS "realizedPnlPercent",
+        status,
+        reason,
+        note
+      FROM trade_executions
+      WHERE symbol = $1 AND mode = $2
+      ORDER BY timestamp DESC
+      LIMIT $3
+    `,
+    [symbol, mode, limit]
+  );
+
+  return tradeHistoryResult.rows.map(mapTradeExecution).reverse();
+}
+
 export async function loadTradingState(
   symbol: string,
   config: TradingStoreConfig
@@ -97,7 +134,105 @@ export async function loadTradingState(
       return initialState(symbol, config);
     }
 
-    const tradeHistoryResult = await client.query<Record<string, unknown>>(
+    const row = stateResult.rows[0];
+    const tradeHistory = await loadTradeHistory(client, symbol, config.mode, config.maxTradeHistory);
+
+    return {
+      symbol,
+      mode: config.mode,
+      activeStrategy: row.active_strategy,
+      lastPrice: Number(row.last_price ?? 0),
+      balances: row.balances,
+      dca: {
+        ...initialState(symbol, config).dca,
+        ...row.dca
+      },
+      tradeHistory,
+      lastUpdated: normalizeTimestamp(row.last_updated)
+    };
+  });
+}
+
+export async function listTradingStates(
+  config: TradingStoreConfig,
+  filters?: { mode?: TradingMode; symbol?: string }
+): Promise<TradingState[]> {
+  return withDatabaseClient(config.databaseUrl, async (client) => {
+    const clauses: string[] = [];
+    const values: Array<string> = [];
+
+    if (filters?.symbol) {
+      values.push(filters.symbol);
+      clauses.push(`symbol = $${values.length}`);
+    }
+
+    if (filters?.mode) {
+      values.push(filters.mode);
+      clauses.push(`mode = $${values.length}`);
+    }
+
+    const whereClause = clauses.length > 0 ? `WHERE ${clauses.join(" AND ")}` : "";
+    const stateResult = await client.query<{
+      symbol: string;
+      mode: TradingMode;
+      active_strategy: TradingState["activeStrategy"];
+      last_price: number;
+      balances: TradingState["balances"];
+      dca: TradingState["dca"];
+      last_updated: string | Date;
+    }>(
+      `
+        SELECT symbol, mode, active_strategy, last_price, balances, dca, last_updated
+        FROM trading_states
+        ${whereClause}
+        ORDER BY symbol ASC, mode ASC
+      `,
+      values
+    );
+
+    return Promise.all(
+      stateResult.rows.map(async (row) => ({
+        symbol: row.symbol,
+        mode: row.mode,
+        activeStrategy: row.active_strategy,
+        lastPrice: Number(row.last_price ?? 0),
+        balances: row.balances,
+        dca: {
+          ...initialState(row.symbol, {
+            ...config,
+            mode: row.mode
+          }).dca,
+          ...row.dca
+        },
+        tradeHistory: await loadTradeHistory(client, row.symbol, row.mode, config.maxTradeHistory),
+        lastUpdated: normalizeTimestamp(row.last_updated)
+      }))
+    );
+  });
+}
+
+export async function listTradeExecutions(
+  databaseUrl: string,
+  filters?: { mode?: TradingMode; symbol?: string; limit?: number }
+): Promise<TradeExecution[]> {
+  return withDatabaseClient(databaseUrl, async (client) => {
+    const clauses: string[] = [];
+    const values: Array<string | number> = [];
+
+    if (filters?.symbol) {
+      values.push(filters.symbol);
+      clauses.push(`symbol = $${values.length}`);
+    }
+
+    if (filters?.mode) {
+      values.push(filters.mode);
+      clauses.push(`mode = $${values.length}`);
+    }
+
+    const whereClause = clauses.length > 0 ? `WHERE ${clauses.join(" AND ")}` : "";
+    values.push(filters?.limit ?? 100);
+
+    const result = await client.query<Record<string, unknown>>(
       `
         SELECT
           id,
@@ -118,28 +253,14 @@ export async function loadTradingState(
           reason,
           note
         FROM trade_executions
-        WHERE symbol = $1 AND mode = $2
+        ${whereClause}
         ORDER BY timestamp DESC
-        LIMIT $3
+        LIMIT $${values.length}
       `,
-      [symbol, config.mode, config.maxTradeHistory]
+      values
     );
 
-    const row = stateResult.rows[0];
-
-    return {
-      symbol,
-      mode: config.mode,
-      activeStrategy: row.active_strategy,
-      lastPrice: Number(row.last_price ?? 0),
-      balances: row.balances,
-      dca: {
-        ...initialState(symbol, config).dca,
-        ...row.dca
-      },
-      tradeHistory: tradeHistoryResult.rows.map(mapTradeExecution).reverse(),
-      lastUpdated: normalizeTimestamp(row.last_updated)
-    };
+    return result.rows.map(mapTradeExecution);
   });
 }
 

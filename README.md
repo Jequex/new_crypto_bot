@@ -65,6 +65,8 @@ The default configuration expects PostgreSQL at `postgresql://postgres:postgres@
 
 The bot now stores these runtime settings in the database instead of `.env`: exchange, primary symbol, symbol list, interval set, analysis cadence, initial quote balance, and DCA tranche size.
 
+An HTTP API is exposed on port `3000` by default.
+
 ## Run with Docker
 
 From the repository root, start the bot and PostgreSQL together:
@@ -77,6 +79,27 @@ The compose stack includes:
 
 - `db`: PostgreSQL 16 with a persistent named volume
 - `trading-bot`: the compiled Node.js bot process
+
+## API endpoints
+
+- `GET /health`: basic health response
+- `GET /api/runtime-config`: returns the runtime config stored in `bot_runtime_config`
+- `PATCH /api/runtime-config`: updates one or more runtime config fields
+- `GET /api/trading-states`: lists persisted trading states with balances, DCA state, last price, and trade history
+- `GET /api/trading-states/:symbol`: returns one symbol state, for example `/api/trading-states/BTC%2FUSDT`
+- `GET /api/trades`: lists recent trade executions, with optional `symbol`, `mode`, and `limit` query params
+
+Example runtime config update:
+
+```bash
+curl -X PATCH http://localhost:3000/api/runtime-config \
+  -H "Content-Type: application/json" \
+  -d '{
+    "symbols": ["XAN/USDT", "CTA/USDT", "QNT/USDT"],
+    "analysisIntervalMs": 60000,
+    "dcaTrancheQuote": 150
+  }'
+```
 
 To inspect recent executions from the database:
 

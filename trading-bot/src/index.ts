@@ -1,10 +1,11 @@
-import { getDatabaseUrl, getRuntimeConfigSeed, loadConfig } from "./config";
+import { AppConfig, getApiPort, getDatabaseUrl, getRuntimeConfigSeed, loadConfig } from "./config";
 import { initializeTradingDatabase } from "./services/database";
+import { startApiServer } from "./services/apiServer";
 import { fetchCandles } from "./services/exchangeClient";
 import { analyzeMarketRegime } from "./services/marketRegimeAnalyzer";
 import { runTradingCycle } from "./services/tradingEngine";
 
-function analyzeAndTradeSymbol(symbol: string, config: Awaited<ReturnType<typeof loadConfig>>): Promise<void> {
+function analyzeAndTradeSymbol(symbol: string, config: AppConfig): Promise<void> {
   const confirmationIntervals = config.confirmationIntervals.filter(
     (candidate) => candidate !== config.interval
   );
@@ -68,18 +69,42 @@ function analyzeAndTradeSymbol(symbol: string, config: Awaited<ReturnType<typeof
     });
 }
 
+async function runAnalysisCycle(databaseUrl: string): Promise<number> {
+  const config = await loadConfig(databaseUrl);
+
+  await Promise.all(config.symbols.map((symbol) => analyzeAndTradeSymbol(symbol, config)));
+  return config.analysisIntervalMs;
+}
+
+function scheduleNextCycle(databaseUrl: string, delayMs: number): void {
+  setTimeout(() => {
+    void runAnalysisCycle(databaseUrl)
+      .then((nextDelayMs) => {
+        scheduleNextCycle(databaseUrl, nextDelayMs);
+      })
+      .catch((error: Error) => {
+        console.error(
+          JSON.stringify(
+            {
+              timestamp: new Date().toISOString(),
+              error: error.message,
+              source: "analysis-cycle"
+            },
+            null,
+            2
+          )
+        );
+        scheduleNextCycle(databaseUrl, 5000);
+      });
+  }, delayMs);
+}
+
 async function main(): Promise<void> {
   const databaseUrl = getDatabaseUrl();
   await initializeTradingDatabase(databaseUrl, getRuntimeConfigSeed());
-  const config = await loadConfig(databaseUrl);
-  const printAnalysisForConfig = () =>
-    Promise.all(config.symbols.map((symbol) => analyzeAndTradeSymbol(symbol, config))).then(() => undefined);
-
-  await printAnalysisForConfig();
-
-  setInterval(() => {
-    void printAnalysisForConfig();
-  }, config.analysisIntervalMs);
+  await startApiServer(databaseUrl, getApiPort());
+  const nextDelayMs = await runAnalysisCycle(databaseUrl);
+  scheduleNextCycle(databaseUrl, nextDelayMs);
 }
 
 void main();

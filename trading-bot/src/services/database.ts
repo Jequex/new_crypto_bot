@@ -11,6 +11,8 @@ export interface RuntimeConfigValues {
   dcaTrancheQuote: number;
 }
 
+export type RuntimeConfigUpdate = Partial<RuntimeConfigValues>;
+
 let pool: Pool | undefined;
 
 function getDatabasePool(databaseUrl: string): Pool {
@@ -31,11 +33,35 @@ function toStringArray(value: unknown, fallback: string[]): string[] {
   return fallback;
 }
 
+function unique(values: string[]): string[] {
+  return [...new Set(values)];
+}
+
+function normalizeRuntimeConfig(values: RuntimeConfigValues): RuntimeConfigValues {
+  const symbol = values.symbol.trim();
+  const symbols = unique([symbol, ...values.symbols.map((value) => value.trim()).filter((value) => value.length > 0)]);
+  const confirmationIntervals = unique(
+    values.confirmationIntervals.map((value) => value.trim()).filter((value) => value.length > 0)
+  );
+
+  return {
+    exchangeId: values.exchangeId.trim(),
+    symbol,
+    symbols,
+    interval: values.interval.trim(),
+    confirmationIntervals,
+    analysisIntervalMs: values.analysisIntervalMs,
+    initialQuoteBalance: values.initialQuoteBalance,
+    dcaTrancheQuote: values.dcaTrancheQuote
+  };
+}
+
 export async function initializeTradingDatabase(
   databaseUrl: string,
   runtimeConfig: RuntimeConfigValues
 ): Promise<void> {
   const databasePool = getDatabasePool(databaseUrl);
+  const seedConfig = normalizeRuntimeConfig(runtimeConfig);
 
   await databasePool.query(`
     CREATE TABLE IF NOT EXISTS trading_states (
@@ -116,14 +142,14 @@ export async function initializeTradingDatabase(
     `,
     [
       1,
-      runtimeConfig.exchangeId,
-      runtimeConfig.symbol,
-      JSON.stringify(runtimeConfig.symbols),
-      runtimeConfig.interval,
-      JSON.stringify(runtimeConfig.confirmationIntervals),
-      runtimeConfig.analysisIntervalMs,
-      runtimeConfig.initialQuoteBalance,
-      runtimeConfig.dcaTrancheQuote
+      seedConfig.exchangeId,
+      seedConfig.symbol,
+      JSON.stringify(seedConfig.symbols),
+      seedConfig.interval,
+      JSON.stringify(seedConfig.confirmationIntervals),
+      seedConfig.analysisIntervalMs,
+      seedConfig.initialQuoteBalance,
+      seedConfig.dcaTrancheQuote
     ]
   );
 }
@@ -159,7 +185,7 @@ export async function loadRuntimeConfig(databaseUrl: string): Promise<RuntimeCon
   const row = result.rows[0];
   const symbols = toStringArray(row.symbols, [row.symbol]);
 
-  return {
+  return normalizeRuntimeConfig({
     exchangeId: row.exchange_id,
     symbol: row.symbol,
     symbols,
@@ -168,7 +194,50 @@ export async function loadRuntimeConfig(databaseUrl: string): Promise<RuntimeCon
     analysisIntervalMs: Number(row.analysis_interval_ms),
     initialQuoteBalance: Number(row.initial_quote_balance),
     dcaTrancheQuote: Number(row.dca_tranche_quote)
-  };
+  });
+}
+
+export async function updateRuntimeConfig(
+  databaseUrl: string,
+  updates: RuntimeConfigUpdate
+): Promise<RuntimeConfigValues> {
+  const current = await loadRuntimeConfig(databaseUrl);
+  const nextConfig = normalizeRuntimeConfig({
+    ...current,
+    ...updates,
+    symbols: updates.symbols ?? current.symbols,
+    confirmationIntervals: updates.confirmationIntervals ?? current.confirmationIntervals
+  });
+
+  await getDatabasePool(databaseUrl).query(
+    `
+      UPDATE bot_runtime_config
+      SET
+        exchange_id = $2,
+        symbol = $3,
+        symbols = $4::jsonb,
+        interval = $5,
+        confirmation_intervals = $6::jsonb,
+        analysis_interval_ms = $7,
+        initial_quote_balance = $8,
+        dca_tranche_quote = $9,
+        updated_at = NOW()
+      WHERE id = $1
+    `,
+    [
+      1,
+      nextConfig.exchangeId,
+      nextConfig.symbol,
+      JSON.stringify(nextConfig.symbols),
+      nextConfig.interval,
+      JSON.stringify(nextConfig.confirmationIntervals),
+      nextConfig.analysisIntervalMs,
+      nextConfig.initialQuoteBalance,
+      nextConfig.dcaTrancheQuote
+    ]
+  );
+
+  return nextConfig;
 }
 
 export async function withDatabaseClient<T>(

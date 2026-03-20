@@ -99,6 +99,10 @@ export function getDatabaseUrl(): string {
   return process.env.DATABASE_URL ?? "postgresql://postgres:postgres@localhost:5432/trading_bot";
 }
 
+export function getApiPort(): number {
+  return readNumber("API_PORT", 3000);
+}
+
 export function getRuntimeConfigSeed(): RuntimeConfigValues {
   const symbol = process.env.SYMBOL ?? "BTC/USDT";
 
