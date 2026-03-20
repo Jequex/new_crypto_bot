@@ -42,11 +42,17 @@ export async function initializeTradingDatabase(
       symbol TEXT NOT NULL,
       mode TEXT NOT NULL,
       active_strategy TEXT NOT NULL,
+      last_price DOUBLE PRECISION NOT NULL DEFAULT 0,
       balances JSONB NOT NULL,
       dca JSONB NOT NULL,
       last_updated TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       PRIMARY KEY (symbol, mode)
     );
+  `);
+
+  await databasePool.query(`
+    ALTER TABLE trading_states
+    ADD COLUMN IF NOT EXISTS last_price DOUBLE PRECISION NOT NULL DEFAULT 0;
   `);
 
   await databasePool.query(`

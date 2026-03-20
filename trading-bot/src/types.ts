@@ -106,6 +106,7 @@ export interface TradingState {
   symbol: string;
   mode: TradingMode;
   activeStrategy: StrategyName;
+  lastPrice: number;
   balances: TradingBalances;
   dca: DcaState;
   tradeHistory: TradeExecution[];

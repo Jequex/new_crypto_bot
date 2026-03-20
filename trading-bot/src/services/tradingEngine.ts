@@ -89,6 +89,8 @@ export async function runTradingCycle(
     maxTradeHistory: config.maxTradeHistory
   });
 
+  state.lastPrice = round(price);
+
   const desiredStrategy = preferredStrategy(analysis, config.minConfidence);
   const actionablePoints: string[] = [];
   const executions = [];

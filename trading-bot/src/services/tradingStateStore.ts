@@ -14,6 +14,7 @@ function initialState(symbol: string, config: TradingStoreConfig): TradingState 
     symbol,
     mode: config.mode,
     activeStrategy: "none",
+    lastPrice: 0,
     balances: {
       base: config.initialBaseBalance,
       quote: config.initialQuoteBalance,
@@ -79,12 +80,13 @@ export async function loadTradingState(
   return withDatabaseClient(config.databaseUrl, async (client) => {
     const stateResult = await client.query<{
       active_strategy: TradingState["activeStrategy"];
+      last_price: number;
       balances: TradingState["balances"];
       dca: TradingState["dca"];
       last_updated: string | Date;
     }>(
       `
-        SELECT active_strategy, balances, dca, last_updated
+        SELECT active_strategy, last_price, balances, dca, last_updated
         FROM trading_states
         WHERE symbol = $1 AND mode = $2
       `,
@@ -129,6 +131,7 @@ export async function loadTradingState(
       symbol,
       mode: config.mode,
       activeStrategy: row.active_strategy,
+      lastPrice: Number(row.last_price ?? 0),
       balances: row.balances,
       dca: {
         ...initialState(symbol, config).dca,
@@ -153,11 +156,12 @@ export async function saveTradingState(state: TradingState, config: TradingStore
     try {
       await client.query(
         `
-          INSERT INTO trading_states (symbol, mode, active_strategy, balances, dca, last_updated)
-          VALUES ($1, $2, $3, $4::jsonb, $5::jsonb, $6)
+          INSERT INTO trading_states (symbol, mode, active_strategy, last_price, balances, dca, last_updated)
+          VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7)
           ON CONFLICT (symbol, mode)
           DO UPDATE SET
             active_strategy = EXCLUDED.active_strategy,
+            last_price = EXCLUDED.last_price,
             balances = EXCLUDED.balances,
             dca = EXCLUDED.dca,
             last_updated = EXCLUDED.last_updated
@@ -166,6 +170,7 @@ export async function saveTradingState(state: TradingState, config: TradingStore
           state.symbol,
           state.mode,
           state.activeStrategy,
+          state.lastPrice,
           JSON.stringify(state.balances),
           JSON.stringify(state.dca),
           lastUpdated
