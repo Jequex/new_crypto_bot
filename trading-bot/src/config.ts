@@ -1,6 +1,51 @@
 import dotenv from "dotenv";
 
+import { loadRuntimeConfig, RuntimeConfigValues } from "./services/database";
+
 dotenv.config();
+
+export interface AppConfig {
+  exchangeId: string;
+  symbol: string;
+  symbols: string[];
+  interval: string;
+  confirmationIntervals: string[];
+  lookbackLimit: number;
+  analysisIntervalMs: number;
+  thresholds: {
+    adxTrend: number;
+    emaSlope: number;
+    emaSpread: number;
+    sidewaysAtr: number;
+    volumeTrend: number;
+    volumeSideways: number;
+  };
+  aiStrategy: {
+    enabled: boolean;
+    epochs: number;
+    lookaheadCandles: number;
+    returnThreshold: number;
+  };
+  trading: {
+    enabled: boolean;
+    mode: "paper" | "live";
+    databaseUrl: string;
+    minConfidence: number;
+    initialQuoteBalance: number;
+    initialBaseBalance: number;
+    feeRate: number;
+    maxTradeHistory: number;
+    closeOnBear: boolean;
+    dca: {
+      trancheQuote: number;
+      maxEntries: number;
+      takeProfitPercent: number;
+      trailingTakeProfitEnabled: boolean;
+      trailingStopPercent: number;
+      stopLossPercent: number;
+    };
+  };
+}
 
 function readNumber(name: string, fallback: number): number {
   const rawValue = process.env[name];
@@ -50,14 +95,27 @@ function readTradingMode(name: string, fallback: "paper" | "live"): "paper" | "l
   return fallback;
 }
 
-export const config = {
-  exchangeId: process.env.EXCHANGE_ID ?? "binance",
-  symbol: process.env.SYMBOL ?? "BTC/USDT",
-  symbols: readList("SYMBOLS", process.env.SYMBOL ? [process.env.SYMBOL] : ["BTC/USDT"]),
-  interval: process.env.INTERVAL ?? "1h",
-  confirmationIntervals: readList("CONFIRMATION_INTERVALS", ["4h", "1d"]),
+export function getDatabaseUrl(): string {
+  return process.env.DATABASE_URL ?? "postgresql://postgres:postgres@localhost:5432/trading_bot";
+}
+
+export function getRuntimeConfigSeed(): RuntimeConfigValues {
+  const symbol = process.env.SYMBOL ?? "BTC/USDT";
+
+  return {
+    exchangeId: process.env.EXCHANGE_ID ?? "binance",
+    symbol,
+    symbols: readList("SYMBOLS", [symbol]),
+    interval: process.env.INTERVAL ?? "1h",
+    confirmationIntervals: readList("CONFIRMATION_INTERVALS", ["4h", "1d"]),
+    analysisIntervalMs: readNumber("ANALYSIS_INTERVAL_MS", 5 * 60 * 1000),
+    initialQuoteBalance: readNumber("INITIAL_QUOTE_BALANCE", 10000),
+    dcaTrancheQuote: readNumber("DCA_TRANCHE_QUOTE", 250)
+  };
+}
+
+const staticConfig = {
   lookbackLimit: readNumber("LOOKBACK_LIMIT", 250),
-  analysisIntervalMs: readNumber("ANALYSIS_INTERVAL_MS", 5 * 60 * 1000),
   thresholds: {
     adxTrend: readNumber("ADX_TREND_THRESHOLD", 20),
     emaSlope: readNumber("EMA_SLOPE_THRESHOLD", 0.0015),
@@ -75,15 +133,12 @@ export const config = {
   trading: {
     enabled: readBoolean("TRADING_ENABLED", true),
     mode: readTradingMode("TRADING_MODE", "paper"),
-    databaseUrl: process.env.DATABASE_URL ?? "postgresql://postgres:postgres@localhost:5432/trading_bot",
     minConfidence: readNumber("TRADING_MIN_CONFIDENCE", 0.62),
-    initialQuoteBalance: readNumber("INITIAL_QUOTE_BALANCE", 10000),
     initialBaseBalance: readNumber("INITIAL_BASE_BALANCE", 0),
     feeRate: readNumber("TRADING_FEE_RATE", 0.001),
     maxTradeHistory: readNumber("MAX_TRADE_HISTORY", 200),
     closeOnBear: readBoolean("CLOSE_ON_BEAR", true),
     dca: {
-      trancheQuote: readNumber("DCA_TRANCHE_QUOTE", 250),
       maxEntries: readNumber("DCA_MAX_ENTRIES", 5),
       takeProfitPercent: readNumber("DCA_TAKE_PROFIT_PERCENT", 0.04),
       trailingTakeProfitEnabled: readBoolean("DCA_TRAILING_TAKE_PROFIT_ENABLED", true),
@@ -92,3 +147,39 @@ export const config = {
     }
   }
 };
+
+export async function loadConfig(databaseUrl = getDatabaseUrl()): Promise<AppConfig> {
+  const runtimeConfig = await loadRuntimeConfig(databaseUrl);
+  const symbols = runtimeConfig.symbols.length > 0 ? runtimeConfig.symbols : [runtimeConfig.symbol];
+
+  return {
+    exchangeId: runtimeConfig.exchangeId,
+    symbol: runtimeConfig.symbol,
+    symbols,
+    interval: runtimeConfig.interval,
+    confirmationIntervals: runtimeConfig.confirmationIntervals,
+    lookbackLimit: staticConfig.lookbackLimit,
+    analysisIntervalMs: runtimeConfig.analysisIntervalMs,
+    thresholds: staticConfig.thresholds,
+    aiStrategy: staticConfig.aiStrategy,
+    trading: {
+      enabled: staticConfig.trading.enabled,
+      mode: staticConfig.trading.mode,
+      databaseUrl,
+      minConfidence: staticConfig.trading.minConfidence,
+      initialQuoteBalance: runtimeConfig.initialQuoteBalance,
+      initialBaseBalance: staticConfig.trading.initialBaseBalance,
+      feeRate: staticConfig.trading.feeRate,
+      maxTradeHistory: staticConfig.trading.maxTradeHistory,
+      closeOnBear: staticConfig.trading.closeOnBear,
+      dca: {
+        trancheQuote: runtimeConfig.dcaTrancheQuote,
+        maxEntries: staticConfig.trading.dca.maxEntries,
+        takeProfitPercent: staticConfig.trading.dca.takeProfitPercent,
+        trailingTakeProfitEnabled: staticConfig.trading.dca.trailingTakeProfitEnabled,
+        trailingStopPercent: staticConfig.trading.dca.trailingStopPercent,
+        stopLossPercent: staticConfig.trading.dca.stopLossPercent
+      }
+    }
+  };
+}

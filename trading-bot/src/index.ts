@@ -1,10 +1,10 @@
-import { config } from "./config";
+import { getDatabaseUrl, getRuntimeConfigSeed, loadConfig } from "./config";
 import { initializeTradingDatabase } from "./services/database";
 import { fetchCandles } from "./services/exchangeClient";
 import { analyzeMarketRegime } from "./services/marketRegimeAnalyzer";
 import { runTradingCycle } from "./services/tradingEngine";
 
-function analyzeAndTradeSymbol(symbol: string): Promise<void> {
+function analyzeAndTradeSymbol(symbol: string, config: Awaited<ReturnType<typeof loadConfig>>): Promise<void> {
   const confirmationIntervals = config.confirmationIntervals.filter(
     (candidate) => candidate !== config.interval
   );
@@ -68,16 +68,17 @@ function analyzeAndTradeSymbol(symbol: string): Promise<void> {
     });
 }
 
-function printAnalysis(): Promise<void> {
-  return Promise.all(config.symbols.map((symbol) => analyzeAndTradeSymbol(symbol))).then(() => undefined);
-}
-
 async function main(): Promise<void> {
-  await initializeTradingDatabase(config.trading.databaseUrl);
-  await printAnalysis();
+  const databaseUrl = getDatabaseUrl();
+  await initializeTradingDatabase(databaseUrl, getRuntimeConfigSeed());
+  const config = await loadConfig(databaseUrl);
+  const printAnalysisForConfig = () =>
+    Promise.all(config.symbols.map((symbol) => analyzeAndTradeSymbol(symbol, config))).then(() => undefined);
+
+  await printAnalysisForConfig();
 
   setInterval(() => {
-    void printAnalysis();
+    void printAnalysisForConfig();
   }, config.analysisIntervalMs);
 }
 

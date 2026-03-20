@@ -63,6 +63,8 @@ npm run dev
 
 The default configuration expects PostgreSQL at `postgresql://postgres:postgres@localhost:5432/trading_bot`.
 
+The bot now stores these runtime settings in the database instead of `.env`: exchange, primary symbol, symbol list, interval set, analysis cadence, initial quote balance, and DCA tranche size.
+
 ## Run with Docker
 
 From the repository root, start the bot and PostgreSQL together:
@@ -93,11 +95,7 @@ The main bot output now includes both `analysis` and `trading` objects.
 ## Environment variables
 
 - `EXCHANGE_ID`: Exchange name supported by `ccxt`, for example `binance`, `kraken`, `coinbase`
-- `SYMBOL`: Trading pair in `ccxt` format, for example `BTC/USDT`
-- `INTERVAL`: Exchange timeframe, for example `15m`, `1h`, `4h`
-- `CONFIRMATION_INTERVALS`: Comma-separated higher timeframes used to confirm the primary signal, for example `4h,1d`
 - `LOOKBACK_LIMIT`: Number of candles to fetch for each analysis cycle
-- `ANALYSIS_INTERVAL_MS`: How often to re-run the analysis
 - `ADX_TREND_THRESHOLD`: Minimum ADX to treat the market as trending
 - `EMA_SLOPE_THRESHOLD`: Minimum normalized EMA slope for directional conviction
 - `EMA_SPREAD_THRESHOLD`: Minimum EMA20/EMA50 spread for bullish or bearish structure
@@ -111,13 +109,12 @@ The main bot output now includes both `analysis` and `trading` objects.
 - `TRADING_ENABLED`: Enables the automated trading layer
 - `TRADING_MODE`: `paper` or `live`
 - `DATABASE_URL`: PostgreSQL connection string used for trading state and trade history
+- Database runtime config: `EXCHANGE_ID`, `SYMBOL`, `SYMBOLS`, `INTERVAL`, `CONFIRMATION_INTERVALS`, `ANALYSIS_INTERVAL_MS`, `INITIAL_QUOTE_BALANCE`, and `DCA_TRANCHE_QUOTE` are now stored in `bot_runtime_config`
 - `TRADING_MIN_CONFIDENCE`: Minimum confirmed regime confidence required to activate a strategy
-- `INITIAL_QUOTE_BALANCE`: Starting paper quote balance
 - `INITIAL_BASE_BALANCE`: Starting paper base balance
 - `TRADING_FEE_RATE`: Fee assumption for paper and local accounting
 - `MAX_TRADE_HISTORY`: Max stored trade executions per symbol in the database
 - `CLOSE_ON_BEAR`: If `true`, bear regimes force the bot to stop opening new trades and flatten any open DCA position
-- `DCA_TRANCHE_QUOTE`: Quote currency allocated per DCA buy
 - `DCA_MAX_ENTRIES`: Maximum number of DCA tranches in one bull cycle
 - `DCA_TAKE_PROFIT_PERCENT`: DCA profit threshold from average entry that triggers fixed take-profit or trailing activation
 - `DCA_TRAILING_TAKE_PROFIT_ENABLED`: Enables trailing take-profit after the take-profit trigger is reached
