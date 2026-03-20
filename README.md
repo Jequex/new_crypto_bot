@@ -36,7 +36,7 @@ The trading engine is stateful and persists balances, active strategy state, and
 
 - Used only when the confirmed regime is `bull`
 - Opens an initial tranche when bullish conviction clears the configured threshold
-- Adds more tranches only when price pulls back by the configured DCA step percentage
+- Adds more tranches on subsequent bullish cycles until the configured entry cap is reached
 - Can activate trailing take-profit once the profit trigger is reached
 - Exits on trailing take-profit, fixed take-profit, stop-loss, or bull regime loss depending on config
 
@@ -119,7 +119,6 @@ The main bot output now includes both `analysis` and `trading` objects.
 - `CLOSE_ON_BEAR`: If `true`, bear regimes force the bot to stop opening new trades and flatten any open DCA position
 - `DCA_TRANCHE_QUOTE`: Quote currency allocated per DCA buy
 - `DCA_MAX_ENTRIES`: Maximum number of DCA tranches in one bull cycle
-- `DCA_STEP_PERCENT`: Pullback percentage required before adding another DCA tranche
 - `DCA_TAKE_PROFIT_PERCENT`: DCA profit threshold from average entry that triggers fixed take-profit or trailing activation
 - `DCA_TRAILING_TAKE_PROFIT_ENABLED`: Enables trailing take-profit after the take-profit trigger is reached
 - `DCA_TRAILING_STOP_PERCENT`: Distance between the highest tracked price and the trailing exit stop

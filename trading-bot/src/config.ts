@@ -85,7 +85,6 @@ export const config = {
     dca: {
       trancheQuote: readNumber("DCA_TRANCHE_QUOTE", 250),
       maxEntries: readNumber("DCA_MAX_ENTRIES", 5),
-      stepPercent: readNumber("DCA_STEP_PERCENT", 0.02),
       takeProfitPercent: readNumber("DCA_TAKE_PROFIT_PERCENT", 0.04),
       trailingTakeProfitEnabled: readBoolean("DCA_TRAILING_TAKE_PROFIT_ENABLED", true),
       trailingStopPercent: readNumber("DCA_TRAILING_STOP_PERCENT", 0.015),

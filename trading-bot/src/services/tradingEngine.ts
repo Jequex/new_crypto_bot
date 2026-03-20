@@ -15,7 +15,6 @@ interface TradingConfig {
   dca: {
     trancheQuote: number;
     maxEntries: number;
-    stepPercent: number;
     takeProfitPercent: number;
     trailingTakeProfitEnabled: boolean;
     trailingStopPercent: number;

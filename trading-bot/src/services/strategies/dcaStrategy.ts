@@ -9,7 +9,6 @@ interface TradingConfig {
   dca: {
     trancheQuote: number;
     maxEntries: number;
-    stepPercent: number;
     takeProfitPercent: number;
     trailingTakeProfitEnabled: boolean;
     trailingStopPercent: number;
@@ -187,8 +186,7 @@ export async function runDcaStrategy(
   const addOnPullback =
     state.dca.entries > 0 &&
     state.dca.entries < config.dca.maxEntries &&
-    !state.dca.trailingTakeProfitActive &&
-    price <= round(state.dca.lastEntryPrice * (1 - config.dca.stepPercent));
+    !state.dca.trailingTakeProfitActive;
 
   if (!openFirstEntry && !addOnPullback) {
     actionablePoints.push(
@@ -196,9 +194,7 @@ export async function runDcaStrategy(
         ? "Bull regime is active, but the DCA position is already at the maximum number of entries."
         : state.dca.trailingTakeProfitActive
           ? "Bull regime is active, but no new DCA entries are allowed while trailing take-profit is armed."
-          : `Bull regime is active, but the pullback threshold was not met. Next add requires ${round(
-              state.dca.lastEntryPrice * (1 - config.dca.stepPercent)
-            )} or lower.`
+          : "Bull regime is active, but a new DCA tranche cannot be added yet."
     );
     return { executions, actionablePoints };
   }
@@ -211,7 +207,7 @@ export async function runDcaStrategy(
       side: "buy",
       price,
       baseAmount,
-      reason: openFirstEntry ? "Open DCA bull position." : "Add DCA tranche on pullback."
+      reason: openFirstEntry ? "Open DCA bull position." : "Add DCA tranche while bull regime remains active."
     },
     config
   );
@@ -240,7 +236,7 @@ export async function runDcaStrategy(
   actionablePoints.push(
     openFirstEntry
       ? "Bull regime confirmed. Opened the first DCA tranche."
-      : "Bull regime remains intact. Added another DCA tranche on a pullback."
+      : "Bull regime remains intact. Added another DCA tranche."
   );
 
   return { executions, actionablePoints };
