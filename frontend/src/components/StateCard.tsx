@@ -12,8 +12,8 @@ export function StateCard({ state, initialQuoteBalance }: StateCardProps) {
   const hasOpenPosition = state.dca.entries > 0 || state.dca.baseAmount > 0;
   const trailingArmed = state.dca.trailingTakeProfitActive;
   const quoteBalancePnl = state.balances.quote - initialQuoteBalance;
-  const openPositionPrice = hasOpenPosition
-    ? (state.lastPrice * state.balances.base) : 0;
+  const openPositionCost = hasOpenPosition ? state.dca.quoteSpent : 0;
+  const openPositionPrice = hasOpenPosition ? state.lastPrice * state.balances.base : 0;
   const pnlQuote = quoteBalancePnl + openPositionPrice - state.balances.feesPaid;
   const pnlPercent = initialQuoteBalance > 0 ? (pnlQuote / initialQuoteBalance) * 100 : 0;
   const pnlClassName = pnlQuote < 0 ? "pnl pnl--negative" : "pnl pnl--positive";
@@ -80,6 +80,10 @@ export function StateCard({ state, initialQuoteBalance }: StateCardProps) {
         <div>
           <p className="label">Fees paid</p>
           <strong>{formatNumber(state.balances.feesPaid, 4)}</strong>
+        </div>
+        <div>
+          <p className="label">Open position cost</p>
+          <strong>{formatNumber(openPositionCost, 2)}</strong>
         </div>
         <div>
           <p className="label">PnL %</p>
