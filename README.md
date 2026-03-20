@@ -30,7 +30,7 @@ If the neural model output is flat or the recent training data has poor class di
 
 ## Automated trading behavior
 
-The trading engine is stateful and stores balances, active strategy state, and execution history in `trading-bot/data/trading-state.json`.
+The trading engine is stateful and persists balances, active strategy state, and execution history in PostgreSQL. If you already have legacy JSON files under `trading-bot/data`, the bot can import them on first load through `LEGACY_STATE_FILE_PATH`, but all new writes go to the database.
 
 ### DCA bot
 
@@ -61,6 +61,27 @@ npm run dev
 
 `npm run dev` now uses `nodemon`, so changes under `trading-bot/src` restart the process automatically.
 
+The default configuration expects PostgreSQL at `postgresql://postgres:postgres@localhost:5432/trading_bot`.
+
+## Run with Docker
+
+From the repository root, start the bot and PostgreSQL together:
+
+```bash
+docker compose up --build
+```
+
+The compose stack includes:
+
+- `db`: PostgreSQL 16 with a persistent named volume
+- `trading-bot`: the compiled Node.js bot process
+
+To inspect recent executions from the database:
+
+```bash
+docker compose exec db psql -U postgres -d trading_bot -c "select symbol, side, price, status, timestamp from trade_executions order by timestamp desc limit 20;"
+```
+
 To sanity-check the AI path against synthetic bull, bear, and sideways data, run:
 
 ```bash
@@ -89,12 +110,13 @@ The main bot output now includes both `analysis` and `trading` objects.
 - `AI_RETURN_THRESHOLD`: Return threshold used to label training samples as bull, bear, or sideways
 - `TRADING_ENABLED`: Enables the automated trading layer
 - `TRADING_MODE`: `paper` or `live`
-- `STATE_FILE_PATH`: Where persistent trading state is stored
+- `DATABASE_URL`: PostgreSQL connection string used for trading state and trade history
+- `LEGACY_STATE_FILE_PATH`: Optional legacy JSON path used only for one-time state import when no database state exists for a symbol
 - `TRADING_MIN_CONFIDENCE`: Minimum confirmed regime confidence required to activate a strategy
 - `INITIAL_QUOTE_BALANCE`: Starting paper quote balance
 - `INITIAL_BASE_BALANCE`: Starting paper base balance
 - `TRADING_FEE_RATE`: Fee assumption for paper and local accounting
-- `MAX_TRADE_HISTORY`: Max stored trade executions in the state file
+- `MAX_TRADE_HISTORY`: Max stored trade executions per symbol in the database
 - `CLOSE_ON_BEAR`: If `true`, bear regimes force the bot to stop opening new trades and flatten any open DCA position
 - `DCA_TRANCHE_QUOTE`: Quote currency allocated per DCA buy
 - `DCA_MAX_ENTRIES`: Maximum number of DCA tranches in one bull cycle
@@ -217,7 +239,7 @@ The main bot output now includes both `analysis` and `trading` objects.
 ## Actionable points
 
 1. Keep `TRADING_MODE=paper` and let the bot run long enough to generate several bull and non-bull regime changes.
-2. Review `trading-bot/data/trading-state.json` after each session and verify that DCA is only active in bull regimes and that positions are closed whenever the regime stops being bullish.
+2. Review the `trading_states` and `trade_executions` tables after each session and verify that DCA is only active in bull regimes and that positions are closed whenever the regime stops being bullish.
 3. Tune `TRADING_MIN_CONFIDENCE`, `DCA_STEP_PERCENT`, `DCA_TAKE_PROFIT_PERCENT`, and `DCA_STOP_LOSS_PERCENT` for the pair and timeframe you actually trade.
 4. Add backtests for both strategies before trusting the automation with capital.
 5. Validate fees, order size minimums, and precision rules for your chosen exchange and symbol.

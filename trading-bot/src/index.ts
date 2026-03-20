@@ -1,4 +1,5 @@
 import { config } from "./config";
+import { initializeTradingDatabase } from "./services/database";
 import { fetchCandles } from "./services/exchangeClient";
 import { analyzeMarketRegime } from "./services/marketRegimeAnalyzer";
 import { runTradingCycle } from "./services/tradingEngine";
@@ -72,6 +73,7 @@ function printAnalysis(): Promise<void> {
 }
 
 async function main(): Promise<void> {
+  await initializeTradingDatabase(config.trading.databaseUrl);
   await printAnalysis();
 
   setInterval(() => {

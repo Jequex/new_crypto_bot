@@ -5,7 +5,8 @@ import { runDcaStrategy, unwindDcaPosition } from "./strategies/dcaStrategy";
 interface TradingConfig {
   enabled: boolean;
   mode: "paper" | "live";
-  stateFilePath: string;
+  databaseUrl: string;
+  legacyStateFilePath?: string;
   minConfidence: number;
   initialQuoteBalance: number;
   initialBaseBalance: number;
@@ -84,7 +85,8 @@ export async function runTradingCycle(
 
   const state = await loadTradingState(analysis.symbol, {
     mode: config.mode,
-    stateFilePath: config.stateFilePath,
+    databaseUrl: config.databaseUrl,
+    legacyStateFilePath: config.legacyStateFilePath,
     initialQuoteBalance: config.initialQuoteBalance,
     initialBaseBalance: config.initialBaseBalance,
     maxTradeHistory: config.maxTradeHistory
@@ -118,7 +120,8 @@ export async function runTradingCycle(
 
   await saveTradingState(state, {
     mode: config.mode,
-    stateFilePath: config.stateFilePath,
+    databaseUrl: config.databaseUrl,
+    legacyStateFilePath: config.legacyStateFilePath,
     initialQuoteBalance: config.initialQuoteBalance,
     initialBaseBalance: config.initialBaseBalance,
     maxTradeHistory: config.maxTradeHistory
