@@ -85,9 +85,9 @@ The compose stack includes:
 - `GET /health`: basic health response
 - `GET /api/runtime-config`: returns the runtime config stored in `bot_runtime_config`
 - `PATCH /api/runtime-config`: updates one or more runtime config fields
-- `GET /api/trading-states`: lists persisted trading states with balances, DCA state, last price, and trade history
-- `GET /api/trading-states/:symbol`: returns one symbol state, for example `/api/trading-states/BTC%2FUSDT`
-- `GET /api/trades`: lists recent trade executions, with optional `symbol`, `mode`, and `limit` query params
+- `GET /api/trading-states`: lists persisted trading states with balances, DCA state, and last price
+- `GET /api/trading-states/:symbol`: returns one symbol state summary, for example `/api/trading-states/BTC%2FUSDT`
+- `GET /api/trades`: returns paginated trade executions for a required `symbol`, with optional `mode`, `page`, and `pageSize` query params
 
 Example runtime config update:
 
@@ -99,6 +99,12 @@ curl -X PATCH http://localhost:3000/api/runtime-config \
     "analysisIntervalMs": 60000,
     "dcaTrancheQuote": 150
   }'
+```
+
+Example paginated trade query:
+
+```bash
+curl "http://localhost:3000/api/trades?symbol=CTA/USDT&page=1&pageSize=20"
 ```
 
 To inspect recent executions from the database:

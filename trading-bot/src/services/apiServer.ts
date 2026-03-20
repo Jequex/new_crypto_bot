@@ -5,6 +5,8 @@ import { RuntimeConfigUpdate, loadRuntimeConfig, updateRuntimeConfig } from "./d
 import { listTradeExecutions, listTradingStates } from "./tradingStateStore";
 import { TradingMode } from "../types";
 
+type TradingStateApiResponse = Awaited<ReturnType<typeof listTradingStates>>[number];
+
 function sendJson(response: ServerResponse, statusCode: number, payload: unknown): void {
   response.writeHead(statusCode, {
     "Content-Type": "application/json; charset=utf-8"
@@ -44,6 +46,11 @@ function parsePositiveNumber(value: unknown, fieldName: string): number {
   }
 
   return value;
+}
+
+function toTradingStateSummary(state: TradingStateApiResponse): Omit<TradingStateApiResponse, "tradeHistory"> {
+  const { tradeHistory: _tradeHistory, ...summary } = state;
+  return summary;
 }
 
 function parseString(value: unknown, fieldName: string): string {
@@ -167,7 +174,7 @@ export async function startApiServer(databaseUrl: string, port: number): Promise
           { mode }
         );
 
-        sendJson(response, 200, tradingStates);
+        sendJson(response, 200, tradingStates.map(toTradingStateSummary));
         return;
       }
 
@@ -191,22 +198,38 @@ export async function startApiServer(databaseUrl: string, port: number): Promise
           return;
         }
 
-        sendJson(response, 200, tradingStates[0]);
+        sendJson(response, 200, toTradingStateSummary(tradingStates[0]));
         return;
       }
 
       if (request.method === "GET" && path === "/api/trades") {
         const mode = parseMode(url.searchParams.get("mode"));
-        const symbol = url.searchParams.get("symbol") ?? undefined;
-        const rawLimit = url.searchParams.get("limit");
-        const limit = rawLimit ? Number(rawLimit) : 100;
+        const symbol = url.searchParams.get("symbol");
+        const rawPage = url.searchParams.get("page");
+        const rawPageSize = url.searchParams.get("pageSize");
+        const page = rawPage ? Number(rawPage) : 1;
+        const pageSize = rawPageSize ? Number(rawPageSize) : 50;
 
-        if (!Number.isInteger(limit) || limit <= 0) {
-          sendError(response, 400, "limit must be a positive integer.");
+        if (!symbol || symbol.trim().length === 0) {
+          sendError(response, 400, "symbol query parameter is required.");
           return;
         }
 
-        sendJson(response, 200, await listTradeExecutions(databaseUrl, { mode, symbol, limit }));
+        if (!Number.isInteger(page) || page <= 0) {
+          sendError(response, 400, "page must be a positive integer.");
+          return;
+        }
+
+        if (!Number.isInteger(pageSize) || pageSize <= 0 || pageSize > 200) {
+          sendError(response, 400, "pageSize must be a positive integer between 1 and 200.");
+          return;
+        }
+
+        sendJson(
+          response,
+          200,
+          await listTradeExecutions(databaseUrl, { mode, symbol: symbol.trim(), page, pageSize })
+        );
         return;
       }
 

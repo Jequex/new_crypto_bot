@@ -213,24 +213,33 @@ export async function listTradingStates(
 
 export async function listTradeExecutions(
   databaseUrl: string,
-  filters?: { mode?: TradingMode; symbol?: string; limit?: number }
-): Promise<TradeExecution[]> {
+  filters: { mode?: TradingMode; symbol: string; page: number; pageSize: number }
+): Promise<{ items: TradeExecution[]; total: number; page: number; pageSize: number }> {
   return withDatabaseClient(databaseUrl, async (client) => {
     const clauses: string[] = [];
     const values: Array<string | number> = [];
 
-    if (filters?.symbol) {
-      values.push(filters.symbol);
-      clauses.push(`symbol = $${values.length}`);
-    }
+    values.push(filters.symbol);
+    clauses.push(`symbol = $${values.length}`);
 
-    if (filters?.mode) {
+    if (filters.mode) {
       values.push(filters.mode);
       clauses.push(`mode = $${values.length}`);
     }
 
     const whereClause = clauses.length > 0 ? `WHERE ${clauses.join(" AND ")}` : "";
-    values.push(filters?.limit ?? 100);
+
+    const countResult = await client.query<{ total: string }>(
+      `
+        SELECT COUNT(*)::text AS total
+        FROM trade_executions
+        ${whereClause}
+      `,
+      values
+    );
+
+    const offset = (filters.page - 1) * filters.pageSize;
+    const pagedValues = [...values, filters.pageSize, offset];
 
     const result = await client.query<Record<string, unknown>>(
       `
@@ -255,12 +264,18 @@ export async function listTradeExecutions(
         FROM trade_executions
         ${whereClause}
         ORDER BY timestamp DESC
-        LIMIT $${values.length}
+        LIMIT $${pagedValues.length - 1}
+        OFFSET $${pagedValues.length}
       `,
-      values
+      pagedValues
     );
 
-    return result.rows.map(mapTradeExecution);
+    return {
+      items: result.rows.map(mapTradeExecution),
+      total: Number(countResult.rows[0]?.total ?? 0),
+      page: filters.page,
+      pageSize: filters.pageSize
+    };
   });
 }
 
