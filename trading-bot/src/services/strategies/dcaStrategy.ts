@@ -49,9 +49,13 @@ function resetDcaState(state: TradingState): void {
   };
 }
 
+function updateHighestPriceSinceEntry(state: TradingState, price: number): void {
+  state.dca.highestPriceSinceEntry = round(Math.max(state.dca.highestPriceSinceEntry, price));
+}
+
 function armOrUpdateTrailingTakeProfit(state: TradingState, price: number, config: TradingConfig): void {
-  const nextHighestPrice = Math.max(state.dca.highestPriceSinceEntry, price);
-  state.dca.highestPriceSinceEntry = round(nextHighestPrice);
+  updateHighestPriceSinceEntry(state, price);
+  const nextHighestPrice = state.dca.highestPriceSinceEntry;
   state.dca.trailingTakeProfitActive = true;
   state.dca.trailingStopPrice = round(nextHighestPrice * (1 - config.dca.trailingStopPercent));
 }
@@ -109,16 +113,24 @@ export async function runDcaStrategy(
   const actionablePoints: string[] = [];
 
   if (state.dca.baseAmount > 0) {
-    const takeProfitPrice = state.dca.avgEntryPrice * (1 + config.dca.takeProfitPercent);
-    const stopLossPrice = state.dca.avgEntryPrice * (1 - config.dca.stopLossPercent);
+    updateHighestPriceSinceEntry(state, price);
+
+    const takeProfitPrice = dcaTakeProfitPrice(state.dca.avgEntryPrice, config);
+    const stopLossPrice = dcaStopLossPrice(state.dca.avgEntryPrice, config);
 
     if (config.dca.trailingTakeProfitEnabled) {
-      if (price >= takeProfitPrice) {
-        armOrUpdateTrailingTakeProfit(state, price, config);
+      const previousTrailingStopPrice = state.dca.trailingStopPrice;
+
+      if (state.dca.highestPriceSinceEntry >= takeProfitPrice) {
+        armOrUpdateTrailingTakeProfit(state, state.dca.highestPriceSinceEntry, config);
         actionablePoints.push(
-          state.dca.highestPriceSinceEntry === round(price)
-            ? "DCA trailing take-profit is active and tracking new highs."
-            : "DCA trailing take-profit is active."
+          state.dca.trailingStopPrice !== previousTrailingStopPrice
+            ? `DCA trailing take-profit active. Trigger ${takeProfitPrice}, high ${state.dca.highestPriceSinceEntry}, stop ${state.dca.trailingStopPrice}.`
+            : `DCA trailing take-profit remains active. Trigger ${takeProfitPrice}, high ${state.dca.highestPriceSinceEntry}, stop ${state.dca.trailingStopPrice}.`
+        );
+      } else {
+        actionablePoints.push(
+          `DCA trailing take-profit is waiting to arm. Trigger ${takeProfitPrice}, current ${round(price)}, high ${state.dca.highestPriceSinceEntry}.`
         );
       }
 
@@ -174,11 +186,20 @@ export async function runDcaStrategy(
   const openFirstEntry = state.dca.entries === 0;
   const addOnPullback =
     state.dca.entries > 0 &&
-    state.dca.entries < config.dca.maxEntries; // &&
-    // price <= state.dca.lastEntryPrice * (1 - config.dca.stepPercent);
+    state.dca.entries < config.dca.maxEntries &&
+    !state.dca.trailingTakeProfitActive &&
+    price <= round(state.dca.lastEntryPrice * (1 - config.dca.stepPercent));
 
   if (!openFirstEntry && !addOnPullback) {
-    actionablePoints.push("Bull regime is active, but DCA entry conditions are not met in this cycle.");
+    actionablePoints.push(
+      state.dca.entries >= config.dca.maxEntries
+        ? "Bull regime is active, but the DCA position is already at the maximum number of entries."
+        : state.dca.trailingTakeProfitActive
+          ? "Bull regime is active, but no new DCA entries are allowed while trailing take-profit is armed."
+          : `Bull regime is active, but the pullback threshold was not met. Next add requires ${round(
+              state.dca.lastEntryPrice * (1 - config.dca.stepPercent)
+            )} or lower.`
+    );
     return { executions, actionablePoints };
   }
 
@@ -212,7 +233,7 @@ export async function runDcaStrategy(
     avgEntryPrice: round(nextQuoteSpent / nextBaseAmount),
     lastEntryPrice: execution.price,
     trailingTakeProfitActive: false,
-    highestPriceSinceEntry: execution.price,
+    highestPriceSinceEntry: round(Math.max(state.dca.highestPriceSinceEntry, execution.price)),
     trailingStopPrice: 0
   };
 
