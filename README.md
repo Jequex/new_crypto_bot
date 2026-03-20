@@ -30,7 +30,7 @@ If the neural model output is flat or the recent training data has poor class di
 
 ## Automated trading behavior
 
-The trading engine is stateful and persists balances, active strategy state, and execution history in PostgreSQL. If you already have legacy JSON files under `trading-bot/data`, the bot can import them on first load through `LEGACY_STATE_FILE_PATH`, but all new writes go to the database.
+The trading engine is stateful and persists balances, active strategy state, and execution history in PostgreSQL.
 
 ### DCA bot
 
@@ -111,7 +111,6 @@ The main bot output now includes both `analysis` and `trading` objects.
 - `TRADING_ENABLED`: Enables the automated trading layer
 - `TRADING_MODE`: `paper` or `live`
 - `DATABASE_URL`: PostgreSQL connection string used for trading state and trade history
-- `LEGACY_STATE_FILE_PATH`: Optional legacy JSON path used only for one-time state import when no database state exists for a symbol
 - `TRADING_MIN_CONFIDENCE`: Minimum confirmed regime confidence required to activate a strategy
 - `INITIAL_QUOTE_BALANCE`: Starting paper quote balance
 - `INITIAL_BASE_BALANCE`: Starting paper base balance

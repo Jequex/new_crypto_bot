@@ -1,13 +1,9 @@
-import { readFile } from "fs/promises";
-import { dirname, extname, join, resolve } from "path";
-
 import { TradeExecution, TradingState } from "../types";
 import { withDatabaseClient } from "./database";
 
 interface TradingStoreConfig {
   mode: "paper" | "live";
   databaseUrl: string;
-  legacyStateFilePath?: string;
   initialQuoteBalance: number;
   initialBaseBalance: number;
   maxTradeHistory: number;
@@ -36,27 +32,6 @@ function initialState(symbol: string, config: TradingStoreConfig): TradingState 
     tradeHistory: [],
     lastUpdated: new Date().toISOString()
   };
-}
-
-function resolvePath(stateFilePath: string): string {
-  return resolve(process.cwd(), stateFilePath);
-}
-
-function symbolFileName(symbol: string): string {
-  return symbol.replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-+|-+$/g, "").toLowerCase();
-}
-
-function resolveSymbolStatePath(symbol: string, stateFilePath: string): string {
-  const absoluteBasePath = resolvePath(stateFilePath);
-  const extension = extname(absoluteBasePath);
-
-  if (!extension) {
-    return join(absoluteBasePath, `${symbolFileName(symbol)}.json`);
-  }
-
-  const baseDirectory = dirname(absoluteBasePath);
-  const fileName = absoluteBasePath.slice(baseDirectory.length + 1, -extension.length);
-  return join(baseDirectory, `${fileName}.${symbolFileName(symbol)}${extension}`);
 }
 
 function normalizeTimestamp(value: unknown): string {
@@ -97,37 +72,6 @@ function mapTradeExecution(row: Record<string, unknown>): TradeExecution {
   };
 }
 
-async function loadLegacyTradingState(
-  symbol: string,
-  config: TradingStoreConfig
-): Promise<TradingState | null> {
-  if (!config.legacyStateFilePath) {
-    return null;
-  }
-
-  const filePath = resolveSymbolStatePath(symbol, config.legacyStateFilePath);
-
-  try {
-    const raw = await readFile(filePath, "utf8");
-    const parsed = JSON.parse(raw) as TradingState;
-
-    if (parsed.symbol !== symbol || parsed.mode !== config.mode) {
-      return null;
-    }
-
-    return {
-      ...parsed,
-      dca: {
-        ...initialState(symbol, config).dca,
-        ...parsed.dca
-      },
-      tradeHistory: parsed.tradeHistory ?? []
-    };
-  } catch {
-    return null;
-  }
-}
-
 export async function loadTradingState(
   symbol: string,
   config: TradingStoreConfig
@@ -148,7 +92,7 @@ export async function loadTradingState(
     );
 
     if (stateResult.rowCount === 0) {
-      return (await loadLegacyTradingState(symbol, config)) ?? initialState(symbol, config);
+      return initialState(symbol, config);
     }
 
     const tradeHistoryResult = await client.query<Record<string, unknown>>(

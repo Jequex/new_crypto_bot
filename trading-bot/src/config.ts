@@ -76,7 +76,6 @@ export const config = {
     enabled: readBoolean("TRADING_ENABLED", true),
     mode: readTradingMode("TRADING_MODE", "paper"),
     databaseUrl: process.env.DATABASE_URL ?? "postgresql://postgres:postgres@localhost:5432/trading_bot",
-    legacyStateFilePath: process.env.LEGACY_STATE_FILE_PATH ?? process.env.STATE_FILE_PATH,
     minConfidence: readNumber("TRADING_MIN_CONFIDENCE", 0.62),
     initialQuoteBalance: readNumber("INITIAL_QUOTE_BALANCE", 10000),
     initialBaseBalance: readNumber("INITIAL_BASE_BALANCE", 0),

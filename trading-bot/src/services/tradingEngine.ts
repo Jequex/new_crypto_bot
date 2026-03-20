@@ -6,7 +6,6 @@ interface TradingConfig {
   enabled: boolean;
   mode: "paper" | "live";
   databaseUrl: string;
-  legacyStateFilePath?: string;
   minConfidence: number;
   initialQuoteBalance: number;
   initialBaseBalance: number;
@@ -86,7 +85,6 @@ export async function runTradingCycle(
   const state = await loadTradingState(analysis.symbol, {
     mode: config.mode,
     databaseUrl: config.databaseUrl,
-    legacyStateFilePath: config.legacyStateFilePath,
     initialQuoteBalance: config.initialQuoteBalance,
     initialBaseBalance: config.initialBaseBalance,
     maxTradeHistory: config.maxTradeHistory
@@ -121,7 +119,6 @@ export async function runTradingCycle(
   await saveTradingState(state, {
     mode: config.mode,
     databaseUrl: config.databaseUrl,
-    legacyStateFilePath: config.legacyStateFilePath,
     initialQuoteBalance: config.initialQuoteBalance,
     initialBaseBalance: config.initialBaseBalance,
     maxTradeHistory: config.maxTradeHistory
