@@ -11,7 +11,10 @@ interface StateCardProps {
 export function StateCard({ state, initialQuoteBalance }: StateCardProps) {
   const hasOpenPosition = state.dca.entries > 0 || state.dca.baseAmount > 0;
   const trailingArmed = state.dca.trailingTakeProfitActive;
-  const pnlQuote = state.balances.quote - initialQuoteBalance;
+  const quoteBalancePnl = state.balances.quote - initialQuoteBalance;
+  const openPositionPrice = hasOpenPosition
+    ? (state.lastPrice * state.balances.base) : 0;
+  const pnlQuote = quoteBalancePnl + openPositionPrice - state.balances.feesPaid;
   const pnlPercent = initialQuoteBalance > 0 ? (pnlQuote / initialQuoteBalance) * 100 : 0;
   const pnlClassName = pnlQuote < 0 ? "pnl pnl--negative" : "pnl pnl--positive";
 
