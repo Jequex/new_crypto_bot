@@ -2,3 +2,5 @@ trading-bot/node_modules/
 trading-bot/dist/
 trading-bot/.env
 trading-bot/data/
+frontend/node_modules/
+frontend/dist/

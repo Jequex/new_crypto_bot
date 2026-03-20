@@ -80,6 +80,25 @@ The compose stack includes:
 - `db`: PostgreSQL 16 with a persistent named volume
 - `trading-bot`: the compiled Node.js bot process
 
+## Frontend app
+
+The repository now includes a React dashboard in `frontend/`.
+
+Run it locally:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+The Vite dev server starts on `http://localhost:5173` and proxies API calls to `http://localhost:3000`.
+
+Frontend routes:
+
+- `/`: trading-state cards
+- `/pairs/:symbol`: paginated trades for the selected pair
+
 ## API endpoints
 
 - `GET /health`: basic health response

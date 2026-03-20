@@ -7,9 +7,16 @@ import { TradingMode } from "../types";
 
 type TradingStateApiResponse = Awaited<ReturnType<typeof listTradingStates>>[number];
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "Content-Type",
+  "Access-Control-Allow-Methods": "GET, PATCH, PUT, OPTIONS"
+};
+
 function sendJson(response: ServerResponse, statusCode: number, payload: unknown): void {
   response.writeHead(statusCode, {
-    "Content-Type": "application/json; charset=utf-8"
+    "Content-Type": "application/json; charset=utf-8",
+    ...corsHeaders
   });
   response.end(`${JSON.stringify(payload, null, 2)}\n`);
 }
@@ -142,6 +149,12 @@ export async function startApiServer(databaseUrl: string, port: number): Promise
 
       const url = new URL(request.url, "http://localhost");
       const path = url.pathname;
+
+      if (request.method === "OPTIONS") {
+        response.writeHead(204, corsHeaders);
+        response.end();
+        return;
+      }
 
       if (request.method === "GET" && path === "/health") {
         sendJson(response, 200, { status: "ok" });
