@@ -1,4 +1,5 @@
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 
 import { fetchRuntimeConfig, fetchTradingStates } from "../api";
 import { StateCard } from "../components/StateCard";
@@ -75,6 +76,14 @@ export function DashboardPage() {
       <section className="hero-panel">
         <div className="hero-panel__layout">
           <div>
+            <div className="page-actions">
+              <Link className="nav-pill" to="/">
+                Dashboard
+              </Link>
+              <Link className="nav-pill" to="/settings">
+                Settings
+              </Link>
+            </div>
             <p className="eyebrow">Realtime desk</p>
             <h1>Trading states at a glance</h1>
             <p className="hero-panel__copy">

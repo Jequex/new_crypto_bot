@@ -66,6 +66,10 @@ button {
   max-width: 1320px;
 }
 
+.page-shell--settings {
+  max-width: 1160px;
+}
+
 .hero-panel {
   position: relative;
   overflow: hidden;
@@ -119,6 +123,25 @@ button {
   margin: 14px 0 0;
   color: var(--muted);
   font-size: 1.05rem;
+}
+
+.page-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.nav-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 9px 14px;
+  border: 1px solid rgba(17, 32, 42, 0.08);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.5);
+  color: var(--teal);
+  font-size: 0.84rem;
+  font-weight: 700;
 }
 
 .overview-grid {
@@ -391,6 +414,116 @@ button {
   background: rgba(255, 239, 234, 0.9);
 }
 
+.status-panel--success {
+  color: #145a4d;
+  background: rgba(230, 249, 244, 0.92);
+}
+
+.settings-form {
+  display: grid;
+  gap: 18px;
+}
+
+.settings-card {
+  padding: 24px;
+  border: 1px solid var(--stroke);
+  border-radius: 24px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.settings-card--grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.settings-card--actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.settings-card__title {
+  margin: 8px 0 0;
+  font-family: "Fraunces", serif;
+  font-size: 1.7rem;
+}
+
+.settings-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.settings-field--full {
+  grid-column: 1 / -1;
+}
+
+.settings-field label {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.settings-field input,
+.settings-field textarea {
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid var(--stroke-strong);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.74);
+  color: var(--text);
+  outline: none;
+  resize: vertical;
+}
+
+.settings-field input:focus,
+.settings-field textarea:focus {
+  border-color: rgba(28, 134, 151, 0.45);
+  box-shadow: 0 0 0 4px rgba(28, 134, 151, 0.12);
+}
+
+.field-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.settings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.primary-button,
+.secondary-button {
+  padding: 13px 18px;
+  border-radius: 999px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.primary-button {
+  border: 0;
+  background: var(--accent);
+  color: white;
+}
+
+.secondary-button {
+  border: 1px solid var(--stroke-strong);
+  background: rgba(255, 255, 255, 0.66);
+  color: var(--text);
+}
+
+.primary-button:disabled,
+.secondary-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .back-link {
   display: inline-block;
   margin-bottom: 10px;
@@ -481,7 +614,9 @@ button {
   .hero-panel__layout,
   .hero-panel__layout--detail,
   .overview-grid,
-  .toolbar-panel {
+  .toolbar-panel,
+  .settings-card--grid,
+  .settings-card--actions {
     grid-template-columns: 1fr;
     display: grid;
   }
@@ -489,7 +624,8 @@ button {
   .state-card__spotlight,
   .trades-panel__meta,
   .pagination-bar,
-  .state-card__footer {
+  .state-card__footer,
+  .settings-actions {
     flex-direction: column;
     align-items: flex-start;
   }

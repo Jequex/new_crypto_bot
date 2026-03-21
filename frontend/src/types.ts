@@ -36,6 +36,8 @@ export interface RuntimeConfig {
   dcaTrancheQuote: number;
 }
 
+export type RuntimeConfigUpdate = Partial<RuntimeConfig>;
+
 export interface TradeItem {
   id: string;
   timestamp: string;

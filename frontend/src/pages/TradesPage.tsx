@@ -67,6 +67,14 @@ export function TradesPage() {
       <section className="hero-panel hero-panel--compact">
         <div className="hero-panel__layout hero-panel__layout--detail">
           <div>
+            <div className="page-actions">
+              <Link className="nav-pill" to="/">
+                Dashboard
+              </Link>
+              <Link className="nav-pill" to="/settings">
+                Settings
+              </Link>
+            </div>
             <Link className="back-link" to="/">
               Back to states
             </Link>
