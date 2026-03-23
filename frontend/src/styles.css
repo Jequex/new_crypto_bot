@@ -210,6 +210,10 @@ button {
   backdrop-filter: blur(8px);
 }
 
+.toolbar-panel--filters {
+  align-items: center;
+}
+
 .toolbar-panel__title {
   margin: 0;
   font-family: "Fraunces", serif;
@@ -242,6 +246,13 @@ button {
 .search-field input:focus {
   border-color: rgba(28, 134, 151, 0.45);
   box-shadow: 0 0 0 4px rgba(28, 134, 151, 0.12);
+}
+
+.filters-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
+  gap: 14px;
+  width: min(100%, 560px);
 }
 
 .state-card {
@@ -392,6 +403,21 @@ button {
 }
 
 .badge--sell {
+  background: rgba(200, 91, 67, 0.12);
+  color: var(--sell);
+}
+
+.badge--info {
+  background: rgba(31, 138, 155, 0.12);
+  color: var(--buy);
+}
+
+.badge--warn {
+  background: rgba(239, 108, 63, 0.12);
+  color: var(--accent-deep);
+}
+
+.badge--error {
   background: rgba(200, 91, 67, 0.12);
   color: var(--sell);
 }
@@ -603,6 +629,31 @@ button {
   cursor: not-allowed;
 }
 
+.log-details {
+  max-width: 420px;
+  margin: 10px 0 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.76rem;
+}
+
+.log-details-disclosure {
+  min-width: 220px;
+}
+
+.log-details-disclosure summary {
+  cursor: pointer;
+  color: var(--teal);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.log-details-disclosure summary::marker {
+  color: var(--accent-deep);
+}
+
 @media (max-width: 720px) {
   .page-shell {
     padding: 24px 14px 48px;
@@ -615,6 +666,7 @@ button {
   .hero-panel__layout,
   .hero-panel__layout--detail,
   .overview-grid,
+  .filters-grid,
   .toolbar-panel,
   .settings-card--grid,
   .settings-card--actions {

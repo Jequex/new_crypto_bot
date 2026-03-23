@@ -86,6 +86,9 @@ export function DashboardPage() {
               <Link className="nav-pill" to="/">
                 Dashboard
               </Link>
+              <Link className="nav-pill" to="/logs">
+                Logs
+              </Link>
               <Link className="nav-pill" to="/settings">
                 Settings
               </Link>

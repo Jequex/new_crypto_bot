@@ -2,8 +2,13 @@ import { AppConfig, getApiPort, getDatabaseUrl, getRuntimeConfigSeed, loadConfig
 import { initializeTradingDatabase } from "./services/database";
 import { startApiServer } from "./services/apiServer";
 import { fetchCandles } from "./services/exchangeClient";
+import { logEvent } from "./services/logger";
 import { analyzeMarketRegime } from "./services/marketRegimeAnalyzer";
 import { runTradingCycle } from "./services/tradingEngine";
+
+function persistLog(databaseUrl: string, payload: Parameters<typeof logEvent>[1]): Promise<void> {
+  return logEvent(databaseUrl, payload).catch(() => undefined);
+}
 
 function analyzeAndTradeSymbol(symbol: string, config: AppConfig): Promise<void> {
   const confirmationIntervals = config.confirmationIntervals.filter(
@@ -38,34 +43,32 @@ function analyzeAndTradeSymbol(symbol: string, config: AppConfig): Promise<void>
 
       const trading = await runTradingCycle(analysis, lastPrice, config.trading);
 
-      console.log(
-        JSON.stringify(
-          {
-            symbol,
-            analysis,
-            trading
-          },
-          null,
-          2
-        )
-      );
+      await persistLog(config.trading.databaseUrl, {
+        level: "info",
+        source: "analysis-cycle",
+        symbol,
+        message: `Completed analysis cycle for ${symbol}.`,
+        details: {
+          analysis,
+          trading
+        }
+      });
     })
     .catch((error: Error) => {
-      console.error(
-        JSON.stringify(
-          {
-            timestamp: new Date().toISOString(),
-            exchangeId: config.exchangeId,
-            symbol,
-            interval: config.interval,
-            confirmationIntervals,
-            tradingMode: config.trading.mode,
-            error: error.message
-          },
-          null,
-          2
-        )
-      );
+      return persistLog(config.trading.databaseUrl, {
+        level: "error",
+        source: "analysis-cycle",
+        symbol,
+        message: `Analysis cycle failed for ${symbol}.`,
+        details: {
+          timestamp: new Date().toISOString(),
+          exchangeId: config.exchangeId,
+          interval: config.interval,
+          confirmationIntervals,
+          tradingMode: config.trading.mode,
+          error: error.message
+        }
+      });
     });
 }
 
@@ -83,18 +86,17 @@ function scheduleNextCycle(databaseUrl: string, delayMs: number): void {
         scheduleNextCycle(databaseUrl, nextDelayMs);
       })
       .catch((error: Error) => {
-        console.error(
-          JSON.stringify(
-            {
-              timestamp: new Date().toISOString(),
-              error: error.message,
-              source: "analysis-cycle"
-            },
-            null,
-            2
-          )
-        );
-        scheduleNextCycle(databaseUrl, 5000);
+        void persistLog(databaseUrl, {
+          level: "error",
+          source: "scheduler",
+          message: "Analysis scheduler failed.",
+          details: {
+            timestamp: new Date().toISOString(),
+            error: error.message
+          }
+        }).finally(() => {
+          scheduleNextCycle(databaseUrl, 5000);
+        });
       });
   }, delayMs);
 }

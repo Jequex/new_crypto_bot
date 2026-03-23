@@ -60,6 +60,32 @@ export interface RuntimeConfig {
 
 export type RuntimeConfigUpdate = Partial<RuntimeConfig>;
 
+export interface LogItem {
+  id: number;
+  level: "info" | "warn" | "error";
+  source: string;
+  symbol?: string;
+  message: string;
+  details?: unknown;
+  createdAt: string;
+}
+
+export interface LogsResponse {
+  items: LogItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface LogsQuery {
+  page: number;
+  pageSize: number;
+  level?: "info" | "warn" | "error";
+  source?: string;
+  symbol?: string;
+  date?: string;
+}
+
 export interface TradeItem {
   id: string;
   timestamp: string;

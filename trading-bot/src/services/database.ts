@@ -116,6 +116,23 @@ export async function initializeTradingDatabase(
   `);
 
   await databasePool.query(`
+    CREATE TABLE IF NOT EXISTS bot_logs (
+      id BIGSERIAL PRIMARY KEY,
+      level TEXT NOT NULL,
+      source TEXT NOT NULL,
+      symbol TEXT,
+      message TEXT NOT NULL,
+      details JSONB,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+
+  await databasePool.query(`
+    CREATE INDEX IF NOT EXISTS idx_bot_logs_created_at
+    ON bot_logs (created_at DESC);
+  `);
+
+  await databasePool.query(`
     CREATE TABLE IF NOT EXISTS bot_runtime_config (
       id SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
       exchange_id TEXT NOT NULL,

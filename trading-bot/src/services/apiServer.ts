@@ -2,6 +2,7 @@ import { createServer, IncomingMessage, ServerResponse } from "http";
 
 import { loadConfig } from "../config";
 import { RuntimeConfigUpdate, loadRuntimeConfig, updateRuntimeConfig } from "./database";
+import { BotLogLevel, listBotLogs, logEvent } from "./logger";
 import { listTradeExecutions, listTradingStates } from "./tradingStateStore";
 import { TradingMode } from "../types";
 
@@ -12,6 +13,10 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type",
   "Access-Control-Allow-Methods": "GET, PATCH, PUT, OPTIONS"
 };
+
+function persistLog(databaseUrl: string, payload: Parameters<typeof logEvent>[1]): Promise<void> {
+  return logEvent(databaseUrl, payload).catch(() => undefined);
+}
 
 function sendJson(response: ServerResponse, statusCode: number, payload: unknown): void {
   response.writeHead(statusCode, {
@@ -41,6 +46,14 @@ async function readJsonBody(request: IncomingMessage): Promise<unknown> {
 
 function parseMode(value: string | null): TradingMode | undefined {
   if (value === "paper" || value === "live") {
+    return value;
+  }
+
+  return undefined;
+}
+
+function parseLogLevel(value: string | null): BotLogLevel | undefined {
+  if (value === "info" || value === "warn" || value === "error") {
     return value;
   }
 
@@ -246,9 +259,43 @@ export async function startApiServer(databaseUrl: string, port: number): Promise
         return;
       }
 
+      if (request.method === "GET" && path === "/api/logs") {
+        const level = parseLogLevel(url.searchParams.get("level"));
+        const source = url.searchParams.get("source")?.trim() || undefined;
+        const symbol = url.searchParams.get("symbol")?.trim() || undefined;
+        const date = url.searchParams.get("date")?.trim() || undefined;
+        const rawPage = url.searchParams.get("page");
+        const rawPageSize = url.searchParams.get("pageSize");
+        const page = rawPage ? Number(rawPage) : 1;
+        const pageSize = rawPageSize ? Number(rawPageSize) : 50;
+
+        if (!Number.isInteger(page) || page <= 0) {
+          sendError(response, 400, "page must be a positive integer.");
+          return;
+        }
+
+        if (!Number.isInteger(pageSize) || pageSize <= 0 || pageSize > 200) {
+          sendError(response, 400, "pageSize must be a positive integer between 1 and 200.");
+          return;
+        }
+
+        sendJson(response, 200, await listBotLogs(databaseUrl, { level, source, symbol, date, page, pageSize }));
+        return;
+      }
+
       sendError(response, 404, "Route not found.");
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown server error.";
+      await persistLog(databaseUrl, {
+        level: "error",
+        source: "api",
+        message: "API request failed.",
+        details: {
+          method: request.method,
+          url: request.url,
+          error: message
+        }
+      });
       sendError(response, 500, message);
     }
   });
@@ -257,7 +304,15 @@ export async function startApiServer(databaseUrl: string, port: number): Promise
     server.once("error", reject);
     server.listen(port, () => {
       server.off("error", reject);
-      console.log(JSON.stringify({ timestamp: new Date().toISOString(), apiPort: port, message: "API server started." }));
+      void persistLog(databaseUrl, {
+        level: "info",
+        source: "api",
+        message: "API server started.",
+        details: {
+          timestamp: new Date().toISOString(),
+          apiPort: port
+        }
+      });
       resolve();
     });
   });

@@ -1,4 +1,4 @@
-import { RuntimeConfig, RuntimeConfigUpdate, TradesResponse, TradingStateSummary } from "./types";
+import { LogsQuery, LogsResponse, RuntimeConfig, RuntimeConfigUpdate, TradesResponse, TradingStateSummary } from "./types";
 
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, "") ?? "";
 
@@ -39,4 +39,29 @@ export function fetchTrades(symbol: string, page: number, pageSize: number): Pro
   });
 
   return requestJson<TradesResponse>(`/api/trades?${params.toString()}`);
+}
+
+export function fetchLogs(query: LogsQuery): Promise<LogsResponse> {
+  const params = new URLSearchParams({
+    page: String(query.page),
+    pageSize: String(query.pageSize)
+  });
+
+  if (query.level) {
+    params.set("level", query.level);
+  }
+
+  if (query.source) {
+    params.set("source", query.source);
+  }
+
+  if (query.symbol) {
+    params.set("symbol", query.symbol);
+  }
+
+  if (query.date) {
+    params.set("date", query.date);
+  }
+
+  return requestJson<LogsResponse>(`/api/logs?${params.toString()}`);
 }
