@@ -111,7 +111,7 @@ export function getDatabaseUrl(): string {
 }
 
 export function getApiPort(): number {
-  return readNumber("API_PORT", 3000);
+  return readNumber("API_PORT", 3100);
 }
 
 export function getRuntimeConfigSeed(): RuntimeConfigValues {

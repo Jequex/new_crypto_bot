@@ -8,7 +8,7 @@ export function formatNumber(value: number, maximumFractionDigits = 6): string {
 export function formatTimestamp(value: string): string {
   return new Intl.DateTimeFormat("en-US", {
     dateStyle: "medium",
-    timeStyle: "short"
+    timeStyle: "long"
   }).format(new Date(value));
 }
 
