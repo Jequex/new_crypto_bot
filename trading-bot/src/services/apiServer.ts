@@ -16,26 +16,37 @@ import { TradingMode } from "../types";
 
 type TradingStateApiResponse = Awaited<ReturnType<typeof listTradingStates>>[number];
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "Content-Type",
-  "Access-Control-Allow-Methods": "GET, PATCH, PUT, OPTIONS"
-};
+function getCorsHeaders(request: IncomingMessage): Record<string, string> {
+  const originHeader = request.headers.origin;
+  const origin = typeof originHeader === "string" && originHeader.trim().length > 0 ? originHeader : "*";
+
+  return {
+    "Access-Control-Allow-Origin": origin,
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    "Access-Control-Allow-Methods": "GET, PATCH, PUT, OPTIONS",
+    "Vary": "Origin"
+  };
+}
 
 function persistLog(databaseUrl: string, payload: Parameters<typeof logEvent>[1]): Promise<void> {
   return logEvent(databaseUrl, payload).catch(() => undefined);
 }
 
-function sendJson(response: ServerResponse, statusCode: number, payload: unknown): void {
+function sendJson(
+  request: IncomingMessage,
+  response: ServerResponse,
+  statusCode: number,
+  payload: unknown
+): void {
   response.writeHead(statusCode, {
     "Content-Type": "application/json; charset=utf-8",
-    ...corsHeaders
+    ...getCorsHeaders(request)
   });
   response.end(`${JSON.stringify(payload, null, 2)}\n`);
 }
 
-function sendError(response: ServerResponse, statusCode: number, message: string): void {
-  sendJson(response, statusCode, { error: message });
+function sendError(request: IncomingMessage, response: ServerResponse, statusCode: number, message: string): void {
+  sendJson(request, response, statusCode, { error: message });
 }
 
 async function readJsonBody(request: IncomingMessage): Promise<unknown> {
@@ -203,7 +214,7 @@ export async function startApiServer(databaseUrl: string, port: number): Promise
   const server = createServer(async (request, response) => {
     try {
       if (!request.url || !request.method) {
-        sendError(response, 400, "Invalid request.");
+        sendError(request, response, 400, "Invalid request.");
         return;
       }
 
@@ -211,42 +222,42 @@ export async function startApiServer(databaseUrl: string, port: number): Promise
       const path = url.pathname;
 
       if (request.method === "OPTIONS") {
-        response.writeHead(204, corsHeaders);
+        response.writeHead(204, getCorsHeaders(request));
         response.end();
         return;
       }
 
       if (request.method === "GET" && path === "/health") {
-        sendJson(response, 200, { status: "ok" });
+        sendJson(request, response, 200, { status: "ok" });
         return;
       }
 
       if (request.method === "GET" && path === "/api/runtime-config") {
-        sendJson(response, 200, await loadRuntimeConfig(databaseUrl));
+        sendJson(request, response, 200, await loadRuntimeConfig(databaseUrl));
         return;
       }
 
       if (request.method === "GET" && path === "/api/ranking-config") {
-        sendJson(response, 200, await loadRankingConfig(databaseUrl));
+        sendJson(request, response, 200, await loadRankingConfig(databaseUrl));
         return;
       }
 
       if (request.method === "GET" && path === "/api/rankings") {
-        sendJson(response, 200, await loadLatestRankingSnapshot(databaseUrl));
+        sendJson(request, response, 200, await loadLatestRankingSnapshot(databaseUrl));
         return;
       }
 
       if ((request.method === "PATCH" || request.method === "PUT") && path === "/api/runtime-config") {
         const body = await readJsonBody(request);
         const updatedConfig = await updateRuntimeConfig(databaseUrl, parseRuntimeConfigUpdate(body));
-        sendJson(response, 200, updatedConfig);
+        sendJson(request, response, 200, updatedConfig);
         return;
       }
 
       if ((request.method === "PATCH" || request.method === "PUT") && path === "/api/ranking-config") {
         const body = await readJsonBody(request);
         const updatedConfig = await updateRankingConfig(databaseUrl, parseRankingConfigUpdate(body));
-        sendJson(response, 200, updatedConfig);
+        sendJson(request, response, 200, updatedConfig);
         return;
       }
 
@@ -264,7 +275,7 @@ export async function startApiServer(databaseUrl: string, port: number): Promise
           { mode }
         );
 
-        sendJson(response, 200, tradingStates.map(toTradingStateSummary));
+        sendJson(request, response, 200, tradingStates.map(toTradingStateSummary));
         return;
       }
 
@@ -284,11 +295,11 @@ export async function startApiServer(databaseUrl: string, port: number): Promise
         );
 
         if (tradingStates.length === 0) {
-          sendError(response, 404, `Trading state not found for symbol ${symbol}.`);
+          sendError(request, response, 404, `Trading state not found for symbol ${symbol}.`);
           return;
         }
 
-        sendJson(response, 200, toTradingStateSummary(tradingStates[0]));
+        sendJson(request, response, 200, toTradingStateSummary(tradingStates[0]));
         return;
       }
 
@@ -301,21 +312,22 @@ export async function startApiServer(databaseUrl: string, port: number): Promise
         const pageSize = rawPageSize ? Number(rawPageSize) : 50;
 
         if (!symbol || symbol.trim().length === 0) {
-          sendError(response, 400, "symbol query parameter is required.");
+          sendError(request, response, 400, "symbol query parameter is required.");
           return;
         }
 
         if (!Number.isInteger(page) || page <= 0) {
-          sendError(response, 400, "page must be a positive integer.");
+          sendError(request, response, 400, "page must be a positive integer.");
           return;
         }
 
         if (!Number.isInteger(pageSize) || pageSize <= 0 || pageSize > 200) {
-          sendError(response, 400, "pageSize must be a positive integer between 1 and 200.");
+          sendError(request, response, 400, "pageSize must be a positive integer between 1 and 200.");
           return;
         }
 
         sendJson(
+          request,
           response,
           200,
           await listTradeExecutions(databaseUrl, { mode, symbol: symbol.trim(), page, pageSize })
@@ -334,20 +346,20 @@ export async function startApiServer(databaseUrl: string, port: number): Promise
         const pageSize = rawPageSize ? Number(rawPageSize) : 50;
 
         if (!Number.isInteger(page) || page <= 0) {
-          sendError(response, 400, "page must be a positive integer.");
+          sendError(request, response, 400, "page must be a positive integer.");
           return;
         }
 
         if (!Number.isInteger(pageSize) || pageSize <= 0 || pageSize > 200) {
-          sendError(response, 400, "pageSize must be a positive integer between 1 and 200.");
+          sendError(request, response, 400, "pageSize must be a positive integer between 1 and 200.");
           return;
         }
 
-        sendJson(response, 200, await listBotLogs(databaseUrl, { level, source, symbol, date, page, pageSize }));
+        sendJson(request, response, 200, await listBotLogs(databaseUrl, { level, source, symbol, date, page, pageSize }));
         return;
       }
 
-      sendError(response, 404, "Route not found.");
+      sendError(request, response, 404, "Route not found.");
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown server error.";
       await persistLog(databaseUrl, {
@@ -360,7 +372,7 @@ export async function startApiServer(databaseUrl: string, port: number): Promise
           error: message
         }
       });
-      sendError(response, 500, message);
+      sendError(request, response, 500, message);
     }
   });
 
