@@ -4,3 +4,5 @@ trading-bot/.env
 trading-bot/data/
 frontend/node_modules/
 frontend/dist/
+ranking-engine/node_modules/
+ranking-engine/dist/

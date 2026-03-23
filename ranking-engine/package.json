@@ -1,0 +1,22 @@
+{
+  "name": "crypto-ranking-engine",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Ranks crypto pairs by how consistently multiple timeframes agree on bull, bear, or sideways regimes.",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "dev": "ts-node src/index.ts"
+  },
+  "dependencies": {
+    "ccxt": "^4.4.78",
+    "dotenv": "^16.4.7",
+    "technicalindicators": "^3.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.11",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.2"
+  }
+}
