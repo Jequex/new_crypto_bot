@@ -40,13 +40,14 @@ Run it through Docker Compose from the repository root:
 docker compose --profile ranking up --build ranking-engine
 ```
 
-The ranking service is attached to the `ranking` profile so it does not start during the default app stack launch.
+The ranking service is attached to the `ranking` profile so it does not start during the default app stack launch. In Docker it runs continuously, writes fresh snapshots on each cycle, and reloads DB-backed ranking settings before every pass.
 
 ## Configuration
 
 - `DATABASE_URL`: Postgres connection string used to read `exchange_id`, `ranking_intervals`, and `ranking_concurrency` from `ranking_runtime_config`
 - `EXCHANGE_ID`: fallback exchange used only when `DATABASE_URL` is not set or the DB config is unavailable
 - `RANKING_INTERVALS`: fallback timeframe list used only when `DATABASE_URL` is not set or the DB config is unavailable
+- `RANKING_RUN_INTERVAL_MS`: delay between ranking cycles, default `300000`
 - `LOOKBACK_LIMIT`: candles fetched per timeframe, default `250`
 - `RANKING_CONCURRENCY`: fallback concurrency used only when `DATABASE_URL` is not set or the DB config is unavailable, default `4`
 - `QUOTE_CURRENCIES`: optional comma-separated quote filters such as `USDT,USDC`

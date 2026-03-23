@@ -56,6 +56,7 @@ export interface PairRanking {
 export interface RankingConfig {
   exchangeId: string;
   intervals: string[];
+  runIntervalMs: number;
   lookbackLimit: number;
   concurrency: number;
   quoteCurrencies: string[];

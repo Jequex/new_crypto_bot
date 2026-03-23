@@ -3,6 +3,8 @@ import { saveRankingSnapshot } from "./services/database";
 import { rankPairs } from "./services/rankingEngine";
 import { PairRanking } from "./types";
 
+let shuttingDown = false;
+
 function formatCounts(ranking: PairRanking): string {
   return `B:${ranking.counts.bull} R:${ranking.counts.bear} S:${ranking.counts.sideways}`;
 }
@@ -54,10 +56,33 @@ function printTable(rankings: PairRanking[], outputLimit?: number): void {
   }
 }
 
-async function main(): Promise<void> {
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+function installSignalHandlers(): void {
+  const handleSignal = (signal: string): void => {
+    if (!shuttingDown) {
+      shuttingDown = true;
+      console.log(`Received ${signal}. Ranking engine will stop after the current cycle.`);
+    }
+  };
+
+  process.on("SIGINT", () => handleSignal("SIGINT"));
+  process.on("SIGTERM", () => handleSignal("SIGTERM"));
+}
+
+async function runCycle(): Promise<number> {
   const config = await loadConfig();
-  const rankings = await rankPairs(config);
   const databaseUrl = process.env.DATABASE_URL;
+
+  console.log(
+    `Starting ranking cycle for ${config.exchangeId} on [${config.intervals.join(", ")}] with concurrency ${config.concurrency}.`
+  );
+
+  const rankings = await rankPairs(config);
 
   if (databaseUrl) {
     await saveRankingSnapshot(databaseUrl, {
@@ -69,10 +94,33 @@ async function main(): Promise<void> {
 
   if (config.outputFormat === "json") {
     console.log(JSON.stringify(rankings, null, 2));
-    return;
+  } else {
+    printTable(rankings, config.outputLimit);
   }
 
-  printTable(rankings, config.outputLimit);
+  return config.runIntervalMs;
+}
+
+async function main(): Promise<void> {
+  installSignalHandlers();
+
+  while (!shuttingDown) {
+    let runIntervalMs = 300000;
+
+    try {
+      runIntervalMs = await runCycle();
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(`Ranking cycle failed: ${message}`);
+    }
+
+    if (shuttingDown) {
+      break;
+    }
+
+    console.log(`Next ranking cycle in ${Math.round(runIntervalMs / 1000)} seconds.`);
+    await sleep(runIntervalMs);
+  }
 }
 
 if (require.main === module) {

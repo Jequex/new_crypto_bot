@@ -232,14 +232,34 @@ async function mapWithConcurrency<TInput, TOutput>(
 export async function rankPairs(config: RankingConfig): Promise<PairRanking[]> {
   const symbols = await loadSymbols(config.exchangeId, config.quoteCurrencies);
   const selectedSymbols = config.maxPairs ? symbols.slice(0, config.maxPairs) : symbols;
-  const rankings = await mapWithConcurrency(selectedSymbols, config.concurrency, async (symbol) => {
+  const results = await mapWithConcurrency(selectedSymbols, config.concurrency, async (symbol) => {
     try {
-      return await analyzePair(symbol, config);
+      return {
+        symbol,
+        ranking: await analyzePair(symbol, config)
+      };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`${symbol}: ${message}`);
+
+      return {
+        symbol,
+        error: message
+      };
     }
   });
+
+  const failures = results.filter((result): result is { symbol: string; error: string } => "error" in result);
+  failures.forEach((failure) => {
+    console.warn(`Skipping ${failure.symbol}: ${failure.error}`);
+  });
+
+  const rankings = results
+    .filter((result): result is { symbol: string; ranking: PairRanking } => "ranking" in result)
+    .map((result) => result.ranking);
+
+  if (rankings.length === 0) {
+    throw new Error("Unable to rank any pairs successfully.");
+  }
 
   return rankings.sort((left, right) => {
     if (right.consistencyScore !== left.consistencyScore) {

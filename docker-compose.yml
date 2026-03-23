@@ -49,7 +49,7 @@ services:
       dockerfile: Dockerfile
     profiles:
       - ranking
-    restart: "no"
+    restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
@@ -57,6 +57,7 @@ services:
       DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@db:5432/trading_bot}
       EXCHANGE_ID: ${RANKING_EXCHANGE_ID:-binance}
       RANKING_INTERVALS: ${RANKING_INTERVALS:-15m,1h,4h,1d}
+      RANKING_RUN_INTERVAL_MS: ${RANKING_RUN_INTERVAL_MS:-300000}
       LOOKBACK_LIMIT: ${RANKING_LOOKBACK_LIMIT:-250}
       RANKING_CONCURRENCY: ${RANKING_CONCURRENCY:-4}
       QUOTE_CURRENCIES: ${RANKING_QUOTE_CURRENCIES:-USDT}
