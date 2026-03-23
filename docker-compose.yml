@@ -54,7 +54,7 @@ services:
       db:
         condition: service_healthy
     environment:
-      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@db:5432/trading_bot}
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/trading_bot
       EXCHANGE_ID: ${RANKING_EXCHANGE_ID:-binance}
       RANKING_INTERVALS: ${RANKING_INTERVALS:-15m,1h,4h,1d}
       RANKING_RUN_INTERVAL_MS: ${RANKING_RUN_INTERVAL_MS:-300000}

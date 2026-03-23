@@ -5,6 +5,36 @@ import { PairRanking } from "./types";
 
 let shuttingDown = false;
 
+function formatError(error: unknown): string {
+  if (error instanceof AggregateError) {
+    const nestedMessages = error.errors
+      .map((nestedError) => formatError(nestedError))
+      .filter((message) => message.length > 0);
+
+    if (nestedMessages.length > 0) {
+      return nestedMessages.join(" | ");
+    }
+  }
+
+  if (error instanceof Error) {
+    if (error.stack && error.stack.trim().length > 0) {
+      return error.stack;
+    }
+
+    if (error.message.trim().length > 0) {
+      return error.message;
+    }
+
+    return error.name;
+  }
+
+  if (typeof error === "string") {
+    return error;
+  }
+
+  return JSON.stringify(error);
+}
+
 function formatCounts(ranking: PairRanking): string {
   return `B:${ranking.counts.bull} R:${ranking.counts.bear} S:${ranking.counts.sideways}`;
 }
@@ -110,7 +140,7 @@ async function main(): Promise<void> {
     try {
       runIntervalMs = await runCycle();
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = formatError(error);
       console.error(`Ranking cycle failed: ${message}`);
     }
 
@@ -125,7 +155,7 @@ async function main(): Promise<void> {
 
 if (require.main === module) {
   main().catch((error: unknown) => {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = formatError(error);
     console.error(message);
     process.exitCode = 1;
   });
