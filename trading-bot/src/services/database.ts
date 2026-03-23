@@ -11,6 +11,7 @@ export interface RuntimeConfigValues {
   analysisIntervalMs: number;
   initialQuoteBalance: number;
   dcaTrancheQuote: number;
+  gridTrancheQuote: number;
 }
 
 export type RuntimeConfigUpdate = Partial<RuntimeConfigValues>;
@@ -80,7 +81,8 @@ function normalizeRuntimeConfig(values: RuntimeConfigValues): RuntimeConfigValue
     confirmationIntervals,
     analysisIntervalMs: values.analysisIntervalMs,
     initialQuoteBalance: values.initialQuoteBalance,
-    dcaTrancheQuote: values.dcaTrancheQuote
+    dcaTrancheQuote: values.dcaTrancheQuote,
+    gridTrancheQuote: values.gridTrancheQuote
   };
 }
 
@@ -188,8 +190,25 @@ export async function initializeTradingDatabase(
       analysis_interval_ms INTEGER NOT NULL,
       initial_quote_balance DOUBLE PRECISION NOT NULL,
       dca_tranche_quote DOUBLE PRECISION NOT NULL,
+      grid_tranche_quote DOUBLE PRECISION NOT NULL,
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+  `);
+
+  await databasePool.query(`
+    ALTER TABLE bot_runtime_config
+    ADD COLUMN IF NOT EXISTS grid_tranche_quote DOUBLE PRECISION;
+  `);
+
+  await databasePool.query(`
+    UPDATE bot_runtime_config
+    SET grid_tranche_quote = LEAST(initial_quote_balance, dca_tranche_quote)
+    WHERE grid_tranche_quote IS NULL OR grid_tranche_quote <= 0;
+  `);
+
+  await databasePool.query(`
+    ALTER TABLE bot_runtime_config
+    ALTER COLUMN grid_tranche_quote SET NOT NULL;
   `);
 
   await databasePool.query(`
@@ -243,9 +262,10 @@ export async function initializeTradingDatabase(
         confirmation_intervals,
         analysis_interval_ms,
         initial_quote_balance,
-        dca_tranche_quote
+        dca_tranche_quote,
+        grid_tranche_quote
       )
-      VALUES ($1, $2, $3, $4::jsonb, $5, $6::jsonb, $7, $8, $9)
+      VALUES ($1, $2, $3, $4::jsonb, $5, $6::jsonb, $7, $8, $9, $10)
       ON CONFLICT (id) DO NOTHING
     `,
     [
@@ -257,7 +277,8 @@ export async function initializeTradingDatabase(
       JSON.stringify(seedConfig.confirmationIntervals),
       seedConfig.analysisIntervalMs,
       seedConfig.initialQuoteBalance,
-      seedConfig.dcaTrancheQuote
+      seedConfig.dcaTrancheQuote,
+      seedConfig.gridTrancheQuote
     ]
   );
 
@@ -285,6 +306,7 @@ export async function loadRuntimeConfig(databaseUrl: string): Promise<RuntimeCon
     analysis_interval_ms: number;
     initial_quote_balance: number;
     dca_tranche_quote: number;
+    grid_tranche_quote: number;
   }>(`
     SELECT
       exchange_id,
@@ -294,7 +316,8 @@ export async function loadRuntimeConfig(databaseUrl: string): Promise<RuntimeCon
       confirmation_intervals,
       analysis_interval_ms,
       initial_quote_balance,
-      dca_tranche_quote
+      dca_tranche_quote,
+      grid_tranche_quote
     FROM bot_runtime_config
     WHERE id = 1
   `);
@@ -315,7 +338,8 @@ export async function loadRuntimeConfig(databaseUrl: string): Promise<RuntimeCon
     confirmationIntervals,
     analysisIntervalMs: Number(row.analysis_interval_ms),
     initialQuoteBalance: Number(row.initial_quote_balance),
-    dcaTrancheQuote: Number(row.dca_tranche_quote)
+    dcaTrancheQuote: Number(row.dca_tranche_quote),
+    gridTrancheQuote: Number(row.grid_tranche_quote)
   });
 }
 
@@ -343,6 +367,7 @@ export async function updateRuntimeConfig(
         analysis_interval_ms = $7,
         initial_quote_balance = $8,
         dca_tranche_quote = $9,
+        grid_tranche_quote = $10,
         updated_at = NOW()
       WHERE id = $1
     `,
@@ -355,7 +380,8 @@ export async function updateRuntimeConfig(
       JSON.stringify(nextConfig.confirmationIntervals),
       nextConfig.analysisIntervalMs,
       nextConfig.initialQuoteBalance,
-      nextConfig.dcaTrancheQuote
+      nextConfig.dcaTrancheQuote,
+      nextConfig.gridTrancheQuote
     ]
   );
 

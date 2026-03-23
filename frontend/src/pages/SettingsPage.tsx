@@ -13,6 +13,7 @@ interface RuntimeConfigFormValues {
   analysisIntervalMs: string;
   initialQuoteBalance: string;
   dcaTrancheQuote: string;
+  gridTrancheQuote: string;
 }
 
 interface RankingConfigFormValues {
@@ -29,7 +30,8 @@ function configToFormValues(config: RuntimeConfig): RuntimeConfigFormValues {
     confirmationIntervals: config.confirmationIntervals.join(", "),
     analysisIntervalMs: String(config.analysisIntervalMs),
     initialQuoteBalance: String(config.initialQuoteBalance),
-    dcaTrancheQuote: String(config.dcaTrancheQuote)
+    dcaTrancheQuote: String(config.dcaTrancheQuote),
+    gridTrancheQuote: String(config.gridTrancheQuote)
   };
 }
 
@@ -174,7 +176,8 @@ export function SettingsPage() {
         confirmationIntervals: parseList(formValues.confirmationIntervals),
         analysisIntervalMs: parsePositiveNumber(formValues.analysisIntervalMs, "Analysis interval"),
         initialQuoteBalance: parsePositiveNumber(formValues.initialQuoteBalance, "Initial quote balance"),
-        dcaTrancheQuote: parsePositiveNumber(formValues.dcaTrancheQuote, "DCA tranche quote")
+        dcaTrancheQuote: parsePositiveNumber(formValues.dcaTrancheQuote, "DCA tranche quote"),
+        gridTrancheQuote: parsePositiveNumber(formValues.gridTrancheQuote, "Grid tranche quote")
       });
 
       setConfig(updatedConfig);
@@ -361,6 +364,18 @@ export function SettingsPage() {
                   step="0.01"
                   type="number"
                   value={formValues.dcaTrancheQuote}
+                />
+              </div>
+
+              <div className="settings-field">
+                <label htmlFor="gridTrancheQuote">Grid tranche quote</label>
+                <input
+                  id="gridTrancheQuote"
+                  min="1"
+                  onChange={(event) => handleFieldChange("gridTrancheQuote", event.target.value)}
+                  step="0.01"
+                  type="number"
+                  value={formValues.gridTrancheQuote}
                 />
               </div>
             </section>

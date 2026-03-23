@@ -112,7 +112,8 @@ function parseRuntimeConfigUpdate(payload: unknown): RuntimeConfigUpdate {
     "confirmationIntervals",
     "analysisIntervalMs",
     "initialQuoteBalance",
-    "dcaTrancheQuote"
+    "dcaTrancheQuote",
+    "gridTrancheQuote"
   ]);
 
   for (const key of Object.keys(body)) {
@@ -151,6 +152,10 @@ function parseRuntimeConfigUpdate(payload: unknown): RuntimeConfigUpdate {
 
   if (body.dcaTrancheQuote !== undefined) {
     update.dcaTrancheQuote = parsePositiveNumber(body.dcaTrancheQuote, "dcaTrancheQuote");
+  }
+
+  if (body.gridTrancheQuote !== undefined) {
+    update.gridTrancheQuote = parsePositiveNumber(body.gridTrancheQuote, "gridTrancheQuote");
   }
 
   if (Object.keys(update).length === 0) {

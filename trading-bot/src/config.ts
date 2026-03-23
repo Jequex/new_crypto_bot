@@ -117,6 +117,9 @@ export function getApiPort(): number {
 export function getRuntimeConfigSeed(): RuntimeConfigValues {
   const symbol = process.env.SYMBOL ?? "BTC/USDT";
   const confirmationIntervals = readList("CONFIRMATION_INTERVALS", ["4h", "1d"]);
+  const initialQuoteBalance = readNumber("INITIAL_QUOTE_BALANCE", 10000);
+  const dcaTrancheQuote = readNumber("DCA_TRANCHE_QUOTE", 250);
+  const gridTrancheQuote = Math.min(readNumber("GRID_TRANCHE_QUOTE", 150), initialQuoteBalance);
 
   return {
     exchangeId: process.env.EXCHANGE_ID ?? "binance",
@@ -125,8 +128,9 @@ export function getRuntimeConfigSeed(): RuntimeConfigValues {
     interval: process.env.INTERVAL ?? "1h",
     confirmationIntervals,
     analysisIntervalMs: readNumber("ANALYSIS_INTERVAL_MS", 5 * 60 * 1000),
-    initialQuoteBalance: readNumber("INITIAL_QUOTE_BALANCE", 10000),
-    dcaTrancheQuote: readNumber("DCA_TRANCHE_QUOTE", 250)
+    initialQuoteBalance,
+    dcaTrancheQuote,
+    gridTrancheQuote
   };
 }
 
@@ -217,7 +221,10 @@ export async function loadConfig(databaseUrl = getDatabaseUrl()): Promise<AppCon
         trailingStopPercent: staticConfig.trading.dca.trailingStopPercent,
         stopLossPercent: staticConfig.trading.dca.stopLossPercent
       },
-      grid: staticConfig.trading.grid
+      grid: {
+        ...staticConfig.trading.grid,
+        trancheQuote: runtimeConfig.gridTrancheQuote
+      }
     }
   };
 }

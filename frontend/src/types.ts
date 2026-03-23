@@ -56,6 +56,7 @@ export interface RuntimeConfig {
   analysisIntervalMs: number;
   initialQuoteBalance: number;
   dcaTrancheQuote: number;
+  gridTrancheQuote: number;
 }
 
 export interface RankingEngineConfig {
