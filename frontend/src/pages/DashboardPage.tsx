@@ -59,7 +59,13 @@ export function DashboardPage() {
   }, [deferredQuery, states]);
 
   const summary = useMemo(() => {
-    const openPositions = states.filter((state) => state.dca.entries > 0 || state.dca.baseAmount > 0).length;
+    const openPositions = states.filter(
+      (state) =>
+        state.dca.entries > 0 ||
+        state.dca.baseAmount > 0 ||
+        state.grid.entries > 0 ||
+        state.grid.baseAmount > 0
+    ).length;
     const trailingArmed = states.filter((state) => state.dca.trailingTakeProfitActive).length;
     const totalQuote = states.reduce((sum, state) => sum + state.balances.quote, 0);
 

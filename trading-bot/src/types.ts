@@ -1,6 +1,6 @@
 export type MarketRegime = "bull" | "bear" | "sideways";
 export type TradingMode = "paper" | "live";
-export type StrategyName = "dca" | "none";
+export type StrategyName = "dca" | "grid" | "none";
 export type OrderSide = "buy" | "sell";
 
 export interface Candle {
@@ -102,6 +102,27 @@ export interface DcaState {
   trailingStopPrice: number;
 }
 
+export interface GridLevel {
+  baseAmount: number;
+  entryPrice: number;
+  quoteSpent: number;
+  feeAmount: number;
+}
+
+export interface GridState {
+  entries: number;
+  baseAmount: number;
+  quoteSpent: number;
+  avgEntryPrice: number;
+  lastBuyPrice: number;
+  lastSellPrice: number;
+  trailingTakeProfitActive: boolean;
+  highestPriceSinceEntry: number;
+  trailingTakeProfitStopPrice: number;
+  trailingStopLossPrice: number;
+  levels: GridLevel[];
+}
+
 export interface TradingState {
   symbol: string;
   mode: TradingMode;
@@ -109,6 +130,7 @@ export interface TradingState {
   lastPrice: number;
   balances: TradingBalances;
   dca: DcaState;
+  grid: GridState;
   tradeHistory: TradeExecution[];
   lastUpdated: string;
 }
@@ -122,5 +144,6 @@ export interface TradingCycleResult {
   executions: TradeExecution[];
   balances: TradingBalances;
   dca: DcaState;
+  grid: GridState;
   actionablePoints: string[];
 }

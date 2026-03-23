@@ -179,6 +179,15 @@ The main bot output now includes both `analysis` and `trading` objects.
 - `DCA_TRAILING_TAKE_PROFIT_ENABLED`: Enables trailing take-profit after the take-profit trigger is reached
 - `DCA_TRAILING_STOP_PERCENT`: Distance between the highest tracked price and the trailing exit stop
 - `DCA_STOP_LOSS_PERCENT`: DCA stop-loss threshold from average entry
+- `GRID_TRANCHE_QUOTE`: Quote size used for each sideways grid buy
+- `GRID_MAX_LEVELS`: Maximum number of open grid levels in a sideways cycle
+- `GRID_SPACING_PERCENT`: Percentage drop required before opening the next lower grid level
+- `GRID_TAKE_PROFIT_PERCENT`: Percentage bounce from a grid level entry that triggers a sell for that tranche
+- `GRID_STOP_LOSS_PERCENT`: Grid-wide stop-loss threshold from average grid entry
+- `GRID_TRAILING_TAKE_PROFIT_ENABLED`: Enables a whole-position trailing take-profit after the aggregate grid take-profit trigger is reached
+- `GRID_TRAILING_TAKE_PROFIT_STOP_PERCENT`: Distance between the grid high watermark and the trailing take-profit stop
+- `GRID_TRAILING_STOP_LOSS_ENABLED`: Enables a ratcheting stop-loss that follows the highest price seen since the grid position was opened
+- `GRID_TRAILING_STOP_LOSS_PERCENT`: Distance between the grid high watermark and the trailing stop-loss
 
 ## Example output
 
@@ -293,8 +302,8 @@ The main bot output now includes both `analysis` and `trading` objects.
 ## Actionable points
 
 1. Keep `TRADING_MODE=paper` and let the bot run long enough to generate several bull and non-bull regime changes.
-2. Review the `trading_states` and `trade_executions` tables after each session and verify that DCA is only active in bull regimes and that positions are closed whenever the regime stops being bullish.
-3. Tune `TRADING_MIN_CONFIDENCE`, `DCA_STEP_PERCENT`, `DCA_TAKE_PROFIT_PERCENT`, and `DCA_STOP_LOSS_PERCENT` for the pair and timeframe you actually trade.
+2. Review the `trading_states` and `trade_executions` tables after each session and verify that DCA is only active in bull regimes, grid is only active in sideways regimes, and positions are closed whenever their regime ends.
+3. Tune `TRADING_MIN_CONFIDENCE`, `DCA_TAKE_PROFIT_PERCENT`, `DCA_STOP_LOSS_PERCENT`, `GRID_SPACING_PERCENT`, and `GRID_TAKE_PROFIT_PERCENT` for the pair and timeframe you actually trade.
 4. Add backtests for both strategies before trusting the automation with capital.
 5. Validate fees, order size minimums, and precision rules for your chosen exchange and symbol.
 6. Add alerting for skipped trades, bull-entry signals, regime-change exits, and stop-loss exits.

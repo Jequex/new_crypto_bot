@@ -44,6 +44,17 @@ export interface AppConfig {
       trailingStopPercent: number;
       stopLossPercent: number;
     };
+    grid: {
+      trancheQuote: number;
+      maxLevels: number;
+      spacingPercent: number;
+      takeProfitPercent: number;
+      stopLossPercent: number;
+      trailingTakeProfitEnabled: boolean;
+      trailingTakeProfitStopPercent: number;
+      trailingStopLossEnabled: boolean;
+      trailingStopLossPercent: number;
+    };
   };
 }
 
@@ -148,6 +159,17 @@ const staticConfig = {
       trailingTakeProfitEnabled: readBoolean("DCA_TRAILING_TAKE_PROFIT_ENABLED", true),
       trailingStopPercent: readNumber("DCA_TRAILING_STOP_PERCENT", 0.015),
       stopLossPercent: readNumber("DCA_STOP_LOSS_PERCENT", 0.05)
+    },
+    grid: {
+      trancheQuote: readNumber("GRID_TRANCHE_QUOTE", 150),
+      maxLevels: readNumber("GRID_MAX_LEVELS", 6),
+      spacingPercent: readNumber("GRID_SPACING_PERCENT", 0.015),
+      takeProfitPercent: readNumber("GRID_TAKE_PROFIT_PERCENT", 0.012),
+      stopLossPercent: readNumber("GRID_STOP_LOSS_PERCENT", 0.05),
+      trailingTakeProfitEnabled: readBoolean("GRID_TRAILING_TAKE_PROFIT_ENABLED", true),
+      trailingTakeProfitStopPercent: readNumber("GRID_TRAILING_TAKE_PROFIT_STOP_PERCENT", 0.008),
+      trailingStopLossEnabled: readBoolean("GRID_TRAILING_STOP_LOSS_ENABLED", true),
+      trailingStopLossPercent: readNumber("GRID_TRAILING_STOP_LOSS_PERCENT", 0.03)
     }
   }
 };
@@ -183,7 +205,8 @@ export async function loadConfig(databaseUrl = getDatabaseUrl()): Promise<AppCon
         trailingTakeProfitEnabled: staticConfig.trading.dca.trailingTakeProfitEnabled,
         trailingStopPercent: staticConfig.trading.dca.trailingStopPercent,
         stopLossPercent: staticConfig.trading.dca.stopLossPercent
-      }
+      },
+      grid: staticConfig.trading.grid
     }
   };
 }

@@ -380,6 +380,7 @@ button {
 }
 
 .badge--dca,
+.badge--grid,
 .badge--buy {
   background: rgba(31, 138, 155, 0.12);
   color: var(--buy);

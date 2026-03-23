@@ -9,10 +9,22 @@ interface StateCardProps {
 }
 
 export function StateCard({ state, initialQuoteBalance }: StateCardProps) {
-  const hasOpenPosition = state.dca.entries > 0 || state.dca.baseAmount > 0;
-  const trailingArmed = state.dca.trailingTakeProfitActive;
+  const hasOpenDcaPosition = state.dca.entries > 0 || state.dca.baseAmount > 0;
+  const hasOpenGridPosition = state.grid.entries > 0 || state.grid.baseAmount > 0;
+  const hasOpenPosition = hasOpenDcaPosition || hasOpenGridPosition;
+  const isGridActive = state.activeStrategy === "grid" || (!hasOpenDcaPosition && hasOpenGridPosition);
+  const trailingArmed = isGridActive ? state.grid.trailingTakeProfitActive : state.dca.trailingTakeProfitActive;
+  const positionEntries = isGridActive ? state.grid.entries : state.dca.entries;
+  const positionQuoteSpent = isGridActive ? state.grid.quoteSpent : state.dca.quoteSpent;
+  const averageEntryPrice = isGridActive ? state.grid.avgEntryPrice : state.dca.avgEntryPrice;
+  const referenceCaption = isGridActive
+    ? `High since entry ${formatNumber(state.grid.highestPriceSinceEntry, 8)}`
+    : `High since entry ${formatNumber(state.dca.highestPriceSinceEntry, 8)}`;
+  const trailingStopValue = isGridActive
+    ? Math.max(state.grid.trailingTakeProfitStopPrice, state.grid.trailingStopLossPrice)
+    : state.dca.trailingStopPrice;
   const quoteBalancePnl = state.balances.quote - initialQuoteBalance;
-  const openPositionCost = hasOpenPosition ? state.dca.quoteSpent : 0;
+  const openPositionCost = hasOpenPosition ? positionQuoteSpent : 0;
   const openPositionPrice = hasOpenPosition ? state.lastPrice * state.balances.base : 0;
   const pnlQuote = quoteBalancePnl + openPositionPrice - state.balances.feesPaid;
   const pnlPercent = initialQuoteBalance > 0 ? (pnlQuote / initialQuoteBalance) * 100 : 0;
@@ -37,19 +49,19 @@ export function StateCard({ state, initialQuoteBalance }: StateCardProps) {
           <strong className="state-card__headline-value">{formatNumber(state.lastPrice, 8)}</strong>
           <span className="state-card__subtle">
             {hasOpenPosition
-              ? `Avg entry ${formatNumber(state.dca.avgEntryPrice, 8)}`
-              : "No open DCA exposure right now"}
+              ? `Avg entry ${formatNumber(averageEntryPrice, 8)}`
+              : "No open strategy exposure right now"}
           </span>
         </div>
         <div className="state-card__spotlight-stat">
           <p className="label">Open entries</p>
-          <strong>{state.dca.entries}</strong>
+          <strong>{positionEntries}</strong>
           <span className="state-card__subtle">{hasOpenPosition ? "Position active" : "Flat"}</span>
         </div>
         <div className="state-card__spotlight-stat">
           <p className="label">Mode</p>
           <strong>{state.mode}</strong>
-          <span className="state-card__subtle">{state.activeStrategy === "dca" ? "Auto-managing" : "Watching only"}</span>
+          <span className="state-card__subtle">{state.activeStrategy === "none" ? "Watching only" : "Auto-managing"}</span>
         </div>
       </div>
 
@@ -57,7 +69,7 @@ export function StateCard({ state, initialQuoteBalance }: StateCardProps) {
         <span className={`mini-chip ${hasOpenPosition ? "mini-chip--live" : "mini-chip--muted"}`}>
           {hasOpenPosition ? "Position open" : "No open position"}
         </span>
-        <span className="mini-chip">High since entry {formatNumber(state.dca.highestPriceSinceEntry, 8)}</span>
+        <span className="mini-chip">{referenceCaption}</span>
       </div>
 
       <div className="state-card__grid">
@@ -71,7 +83,7 @@ export function StateCard({ state, initialQuoteBalance }: StateCardProps) {
         </div>
         <div>
           <p className="label">Average entry</p>
-          <strong>{formatNumber(state.dca.avgEntryPrice, 8)}</strong>
+          <strong>{formatNumber(averageEntryPrice, 8)}</strong>
         </div>
         <div>
           <p className="label">PnL</p>
@@ -91,7 +103,7 @@ export function StateCard({ state, initialQuoteBalance }: StateCardProps) {
         </div>
         <div>
           <p className="label">Trailing stop</p>
-          <strong>{formatNumber(state.dca.trailingStopPrice, 8)}</strong>
+          <strong>{trailingStopValue > 0 ? formatNumber(trailingStopValue, 8) : "-"}</strong>
         </div>
       </div>
 

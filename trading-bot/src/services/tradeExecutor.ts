@@ -1,6 +1,6 @@
 import { placeMarketOrder } from "./exchangeClient";
 
-import { OrderSide, TradeExecution, TradingState } from "../types";
+import { OrderSide, StrategyName, TradeExecution, TradingState } from "../types";
 
 interface TradingConfig {
   mode: "paper" | "live";
@@ -10,7 +10,7 @@ interface TradingConfig {
 }
 
 interface TradeRequest {
-  strategy: "dca";
+  strategy: Exclude<StrategyName, "none">;
   side: OrderSide;
   price: number;
   baseAmount: number;

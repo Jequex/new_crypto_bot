@@ -30,6 +30,19 @@ function initialState(symbol: string, config: TradingStoreConfig): TradingState 
       highestPriceSinceEntry: 0,
       trailingStopPrice: 0
     },
+    grid: {
+      entries: 0,
+      baseAmount: 0,
+      quoteSpent: 0,
+      avgEntryPrice: 0,
+      lastBuyPrice: 0,
+      lastSellPrice: 0,
+      trailingTakeProfitActive: false,
+      highestPriceSinceEntry: 0,
+      trailingTakeProfitStopPrice: 0,
+      trailingStopLossPrice: 0,
+      levels: []
+    },
     tradeHistory: [],
     lastUpdated: new Date().toISOString()
   };
@@ -120,10 +133,11 @@ export async function loadTradingState(
       last_price: number;
       balances: TradingState["balances"];
       dca: TradingState["dca"];
+      grid: TradingState["grid"];
       last_updated: string | Date;
     }>(
       `
-        SELECT active_strategy, last_price, balances, dca, last_updated
+        SELECT active_strategy, last_price, balances, dca, grid, last_updated
         FROM trading_states
         WHERE symbol = $1 AND mode = $2
       `,
@@ -146,6 +160,11 @@ export async function loadTradingState(
       dca: {
         ...initialState(symbol, config).dca,
         ...row.dca
+      },
+      grid: {
+        ...initialState(symbol, config).grid,
+        ...row.grid,
+        levels: Array.isArray(row.grid?.levels) ? row.grid.levels : []
       },
       tradeHistory,
       lastUpdated: normalizeTimestamp(row.last_updated)
@@ -179,10 +198,11 @@ export async function listTradingStates(
       last_price: number;
       balances: TradingState["balances"];
       dca: TradingState["dca"];
+      grid: TradingState["grid"];
       last_updated: string | Date;
     }>(
       `
-        SELECT symbol, mode, active_strategy, last_price, balances, dca, last_updated
+        SELECT symbol, mode, active_strategy, last_price, balances, dca, grid, last_updated
         FROM trading_states
         ${whereClause}
         ORDER BY symbol ASC, mode ASC
@@ -203,6 +223,14 @@ export async function listTradingStates(
             mode: row.mode
           }).dca,
           ...row.dca
+        },
+        grid: {
+          ...initialState(row.symbol, {
+            ...config,
+            mode: row.mode
+          }).grid,
+          ...row.grid,
+          levels: Array.isArray(row.grid?.levels) ? row.grid.levels : []
         },
         tradeHistory: await loadTradeHistory(client, row.symbol, row.mode, config.maxTradeHistory),
         lastUpdated: normalizeTimestamp(row.last_updated)
@@ -292,14 +320,15 @@ export async function saveTradingState(state: TradingState, config: TradingStore
     try {
       await client.query(
         `
-          INSERT INTO trading_states (symbol, mode, active_strategy, last_price, balances, dca, last_updated)
-          VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7)
+          INSERT INTO trading_states (symbol, mode, active_strategy, last_price, balances, dca, grid, last_updated)
+          VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7::jsonb, $8)
           ON CONFLICT (symbol, mode)
           DO UPDATE SET
             active_strategy = EXCLUDED.active_strategy,
             last_price = EXCLUDED.last_price,
             balances = EXCLUDED.balances,
             dca = EXCLUDED.dca,
+            grid = EXCLUDED.grid,
             last_updated = EXCLUDED.last_updated
         `,
         [
@@ -309,6 +338,7 @@ export async function saveTradingState(state: TradingState, config: TradingStore
           state.lastPrice,
           JSON.stringify(state.balances),
           JSON.stringify(state.dca),
+          JSON.stringify(state.grid),
           lastUpdated
         ]
       );
