@@ -1,4 +1,12 @@
-import { LogsQuery, LogsResponse, RuntimeConfig, RuntimeConfigUpdate, TradesResponse, TradingStateSummary } from "./types";
+import {
+  LogsQuery,
+  LogsResponse,
+  RankingSnapshotResponse,
+  RuntimeConfig,
+  RuntimeConfigUpdate,
+  TradesResponse,
+  TradingStateSummary
+} from "./types";
 
 const apiBaseUrl =
   (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, "") ?? "http://localhost:3100";
@@ -20,6 +28,10 @@ export function fetchTradingStates(): Promise<TradingStateSummary[]> {
 
 export function fetchRuntimeConfig(): Promise<RuntimeConfig> {
   return requestJson<RuntimeConfig>("/api/runtime-config");
+}
+
+export function fetchRankings(): Promise<RankingSnapshotResponse | null> {
+  return requestJson<RankingSnapshotResponse | null>("/api/rankings");
 }
 
 export function saveRuntimeConfig(payload: RuntimeConfigUpdate): Promise<RuntimeConfig> {

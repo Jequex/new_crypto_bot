@@ -104,6 +104,9 @@ export function LogsPage() {
               <Link className="nav-pill" to="/">
                 Dashboard
               </Link>
+              <Link className="nav-pill" to="/rankings">
+                Rankings
+              </Link>
               <Link className="nav-pill" to="/settings">
                 Settings
               </Link>

@@ -1,5 +1,7 @@
 import { Pool, PoolClient } from "pg";
 
+import { RankingSnapshot, RankingSnapshotItem } from "../types";
+
 export interface RuntimeConfigValues {
   exchangeId: string;
   symbol: string;
@@ -36,6 +38,18 @@ function toStringArray(value: unknown, fallback: string[]): string[] {
 
 function unique(values: string[]): string[] {
   return [...new Set(values)];
+}
+
+function toIsoString(value: Date | string): string {
+  return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
+}
+
+function parseRankingItems(value: unknown): RankingSnapshotItem[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value as RankingSnapshotItem[];
 }
 
 function normalizeRuntimeConfig(values: RuntimeConfigValues): RuntimeConfigValues {
@@ -135,6 +149,21 @@ export async function initializeTradingDatabase(
   await databasePool.query(`
     CREATE INDEX IF NOT EXISTS idx_bot_logs_created_at
     ON bot_logs (created_at DESC);
+  `);
+
+  await databasePool.query(`
+    CREATE TABLE IF NOT EXISTS ranking_snapshots (
+      id BIGSERIAL PRIMARY KEY,
+      exchange_id TEXT NOT NULL,
+      intervals JSONB NOT NULL,
+      results JSONB NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+
+  await databasePool.query(`
+    CREATE INDEX IF NOT EXISTS idx_ranking_snapshots_created_at
+    ON ranking_snapshots (created_at DESC, id DESC);
   `);
 
   await databasePool.query(`
@@ -304,4 +333,35 @@ export async function withDatabaseClient<T>(
   } finally {
     client.release();
   }
+}
+
+export async function loadLatestRankingSnapshot(databaseUrl: string): Promise<RankingSnapshot | null> {
+  const result = await getDatabasePool(databaseUrl).query<{
+    id: number | string;
+    exchange_id: string;
+    intervals: unknown;
+    results: unknown;
+    created_at: Date | string;
+  }>(`
+    SELECT id, exchange_id, intervals, results, created_at
+    FROM ranking_snapshots
+    ORDER BY created_at DESC, id DESC
+    LIMIT 1
+  `);
+
+  if (result.rowCount === 0) {
+    return null;
+  }
+
+  const row = result.rows[0];
+  const items = parseRankingItems(row.results);
+
+  return {
+    runId: Number(row.id),
+    exchangeId: row.exchange_id,
+    intervals: toStringArray(row.intervals, []),
+    createdAt: toIsoString(row.created_at),
+    total: items.length,
+    items
+  };
 }

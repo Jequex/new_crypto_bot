@@ -233,7 +233,8 @@ button {
   font-weight: 700;
 }
 
-.search-field input {
+.search-field input,
+.search-field select {
   width: 100%;
   padding: 14px 16px;
   border: 1px solid var(--stroke-strong);
@@ -243,7 +244,8 @@ button {
   outline: none;
 }
 
-.search-field input:focus {
+.search-field input:focus,
+.search-field select:focus {
   border-color: rgba(28, 134, 151, 0.45);
   box-shadow: 0 0 0 4px rgba(28, 134, 151, 0.12);
 }
@@ -395,6 +397,21 @@ button {
 .badge--buy {
   background: rgba(31, 138, 155, 0.12);
   color: var(--buy);
+}
+
+.badge--bull {
+  background: rgba(20, 135, 127, 0.12);
+  color: var(--buy);
+}
+
+.badge--bear {
+  background: rgba(197, 86, 59, 0.12);
+  color: var(--sell);
+}
+
+.badge--sideways {
+  background: rgba(122, 111, 99, 0.14);
+  color: var(--none);
 }
 
 .badge--none {
@@ -654,6 +671,77 @@ button {
   color: var(--accent-deep);
 }
 
+.rankings-panel__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.rankings-table td {
+  min-width: 120px;
+}
+
+.counts-breakdown {
+  display: grid;
+  gap: 4px;
+  min-width: 120px;
+}
+
+.ranking-predictions {
+  min-width: 240px;
+}
+
+.ranking-predictions summary {
+  cursor: pointer;
+  color: var(--teal);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.ranking-predictions summary::marker {
+  color: var(--accent-deep);
+}
+
+.ranking-predictions__list {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.prediction-chip {
+  padding: 12px;
+  border: 1px solid rgba(17, 32, 42, 0.08);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.58);
+}
+
+.prediction-chip__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.prediction-chip strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.prediction-chip span,
+.prediction-chip p {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.prediction-chip p {
+  margin: 8px 0 0;
+}
+
 @media (max-width: 720px) {
   .page-shell {
     padding: 24px 14px 48px;
@@ -676,6 +764,7 @@ button {
 
   .state-card__spotlight,
   .trades-panel__meta,
+  .rankings-panel__meta,
   .pagination-bar,
   .state-card__footer,
   .settings-actions {

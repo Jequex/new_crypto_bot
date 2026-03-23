@@ -85,6 +85,49 @@ export interface TradeExecution {
   note?: string;
 }
 
+export interface RankingMetrics {
+  lastClose: number;
+  ema20: number;
+  ema50: number;
+  ema20Slope: number;
+  emaSpreadPercent: number;
+  adx: number;
+  plusDI: number;
+  minusDI: number;
+  atrPercent: number;
+  rsi: number;
+  volumeSma20: number;
+  volumeRatio: number;
+}
+
+export interface RankingPrediction {
+  interval: string;
+  regime: MarketRegime;
+  confidence: number;
+  metrics: RankingMetrics;
+  reasons: string[];
+}
+
+export interface RankingSnapshotItem {
+  symbol: string;
+  dominantRegime: MarketRegime;
+  consistencyScore: number;
+  consistencyRatio: number;
+  dominantConfidence: number;
+  averageConfidence: number;
+  counts: Record<MarketRegime, number>;
+  predictions: RankingPrediction[];
+}
+
+export interface RankingSnapshot {
+  runId: number;
+  exchangeId: string;
+  intervals: string[];
+  createdAt: string;
+  total: number;
+  items: RankingSnapshotItem[];
+}
+
 export interface TradingBalances {
   base: number;
   quote: number;

@@ -1,5 +1,7 @@
 import { Pool } from "pg";
 
+import { PairRanking } from "../types";
+
 let pool: Pool | undefined;
 
 function getDatabasePool(databaseUrl: string): Pool {
@@ -37,6 +39,23 @@ async function ensureRankingIntervalsColumn(databaseUrl: string): Promise<void> 
   `);
 }
 
+async function ensureRankingSnapshotsTable(databaseUrl: string): Promise<void> {
+  await getDatabasePool(databaseUrl).query(`
+    CREATE TABLE IF NOT EXISTS ranking_snapshots (
+      id BIGSERIAL PRIMARY KEY,
+      exchange_id TEXT NOT NULL,
+      intervals JSONB NOT NULL,
+      results JSONB NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+
+  await getDatabasePool(databaseUrl).query(`
+    CREATE INDEX IF NOT EXISTS idx_ranking_snapshots_created_at
+    ON ranking_snapshots (created_at DESC, id DESC);
+  `);
+}
+
 export async function loadDatabaseRuntimeConfig(databaseUrl: string): Promise<{
   exchangeId: string;
   rankingIntervals: string[];
@@ -69,4 +88,26 @@ export async function loadDatabaseRuntimeConfig(databaseUrl: string): Promise<{
     exchangeId: row.exchange_id,
     rankingIntervals: toStringArray(row.ranking_intervals, [row.interval, ...confirmationIntervals])
   };
+}
+
+export async function saveRankingSnapshot(
+  databaseUrl: string,
+  payload: {
+    exchangeId: string;
+    intervals: string[];
+    rankings: PairRanking[];
+  }
+): Promise<number> {
+  await ensureRankingSnapshotsTable(databaseUrl);
+
+  const result = await getDatabasePool(databaseUrl).query<{ id: number | string }>(
+    `
+      INSERT INTO ranking_snapshots (exchange_id, intervals, results)
+      VALUES ($1, $2::jsonb, $3::jsonb)
+      RETURNING id
+    `,
+    [payload.exchangeId, JSON.stringify(payload.intervals), JSON.stringify(payload.rankings)]
+  );
+
+  return Number(result.rows[0]?.id ?? 0);
 }

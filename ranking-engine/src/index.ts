@@ -1,4 +1,5 @@
 import { loadConfig } from "./config";
+import { saveRankingSnapshot } from "./services/database";
 import { rankPairs } from "./services/rankingEngine";
 import { PairRanking } from "./types";
 
@@ -56,6 +57,15 @@ function printTable(rankings: PairRanking[], outputLimit?: number): void {
 async function main(): Promise<void> {
   const config = await loadConfig();
   const rankings = await rankPairs(config);
+  const databaseUrl = process.env.DATABASE_URL;
+
+  if (databaseUrl) {
+    await saveRankingSnapshot(databaseUrl, {
+      exchangeId: config.exchangeId,
+      intervals: config.intervals,
+      rankings
+    });
+  }
 
   if (config.outputFormat === "json") {
     console.log(JSON.stringify(rankings, null, 2));

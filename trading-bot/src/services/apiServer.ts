@@ -1,7 +1,7 @@
 import { createServer, IncomingMessage, ServerResponse } from "http";
 
 import { loadConfig } from "../config";
-import { RuntimeConfigUpdate, loadRuntimeConfig, updateRuntimeConfig } from "./database";
+import { RuntimeConfigUpdate, loadLatestRankingSnapshot, loadRuntimeConfig, updateRuntimeConfig } from "./database";
 import { BotLogLevel, listBotLogs, logEvent } from "./logger";
 import { listTradeExecutions, listTradingStates } from "./tradingStateStore";
 import { TradingMode } from "../types";
@@ -181,6 +181,11 @@ export async function startApiServer(databaseUrl: string, port: number): Promise
 
       if (request.method === "GET" && path === "/api/runtime-config") {
         sendJson(response, 200, await loadRuntimeConfig(databaseUrl));
+        return;
+      }
+
+      if (request.method === "GET" && path === "/api/rankings") {
+        sendJson(response, 200, await loadLatestRankingSnapshot(databaseUrl));
         return;
       }
 

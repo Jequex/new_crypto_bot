@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 
 import { DashboardPage } from "./pages/DashboardPage";
 import { LogsPage } from "./pages/LogsPage";
+import { RankingsPage } from "./pages/RankingsPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { TradesPage } from "./pages/TradesPage";
 
@@ -10,6 +11,7 @@ export function App() {
     <Routes>
       <Route path="/" element={<DashboardPage />} />
       <Route path="/logs" element={<LogsPage />} />
+      <Route path="/rankings" element={<RankingsPage />} />
       <Route path="/pairs/:symbol" element={<TradesPage />} />
       <Route path="/settings" element={<SettingsPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
