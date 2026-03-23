@@ -8,13 +8,19 @@ export interface RuntimeConfigValues {
   symbols: string[];
   interval: string;
   confirmationIntervals: string[];
-  rankingIntervals: string[];
   analysisIntervalMs: number;
   initialQuoteBalance: number;
   dcaTrancheQuote: number;
 }
 
 export type RuntimeConfigUpdate = Partial<RuntimeConfigValues>;
+
+export interface RankingConfigValues {
+  exchangeId: string;
+  rankingIntervals: string[];
+}
+
+export type RankingConfigUpdate = Partial<RankingConfigValues>;
 
 let pool: Pool | undefined;
 
@@ -52,14 +58,18 @@ function parseRankingItems(value: unknown): RankingSnapshotItem[] {
   return value as RankingSnapshotItem[];
 }
 
+function normalizeRankingConfig(values: RankingConfigValues): RankingConfigValues {
+  return {
+    exchangeId: values.exchangeId.trim(),
+    rankingIntervals: unique(values.rankingIntervals.map((value) => value.trim()).filter((value) => value.length > 0))
+  };
+}
+
 function normalizeRuntimeConfig(values: RuntimeConfigValues): RuntimeConfigValues {
   const symbol = values.symbol.trim();
   const symbols = unique([symbol, ...values.symbols.map((value) => value.trim()).filter((value) => value.length > 0)]);
   const confirmationIntervals = unique(
     values.confirmationIntervals.map((value) => value.trim()).filter((value) => value.length > 0)
-  );
-  const rankingIntervals = unique(
-    values.rankingIntervals.map((value) => value.trim()).filter((value) => value.length > 0)
   );
 
   return {
@@ -68,7 +78,6 @@ function normalizeRuntimeConfig(values: RuntimeConfigValues): RuntimeConfigValue
     symbols,
     interval: values.interval.trim(),
     confirmationIntervals,
-    rankingIntervals,
     analysisIntervalMs: values.analysisIntervalMs,
     initialQuoteBalance: values.initialQuoteBalance,
     dcaTrancheQuote: values.dcaTrancheQuote
@@ -77,10 +86,12 @@ function normalizeRuntimeConfig(values: RuntimeConfigValues): RuntimeConfigValue
 
 export async function initializeTradingDatabase(
   databaseUrl: string,
-  runtimeConfig: RuntimeConfigValues
+  runtimeConfig: RuntimeConfigValues,
+  rankingConfig: RankingConfigValues
 ): Promise<void> {
   const databasePool = getDatabasePool(databaseUrl);
   const seedConfig = normalizeRuntimeConfig(runtimeConfig);
+  const seedRankingConfig = normalizeRankingConfig(rankingConfig);
 
   await databasePool.query(`
     CREATE TABLE IF NOT EXISTS trading_states (
@@ -174,7 +185,6 @@ export async function initializeTradingDatabase(
       symbols JSONB NOT NULL,
       interval TEXT NOT NULL,
       confirmation_intervals JSONB NOT NULL,
-      ranking_intervals JSONB NOT NULL DEFAULT '[]'::jsonb,
       analysis_interval_ms INTEGER NOT NULL,
       initial_quote_balance DOUBLE PRECISION NOT NULL,
       dca_tranche_quote DOUBLE PRECISION NOT NULL,
@@ -183,18 +193,43 @@ export async function initializeTradingDatabase(
   `);
 
   await databasePool.query(`
-    ALTER TABLE bot_runtime_config
-    ADD COLUMN IF NOT EXISTS ranking_intervals JSONB NOT NULL DEFAULT '[]'::jsonb;
+    CREATE TABLE IF NOT EXISTS ranking_runtime_config (
+      id SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+      exchange_id TEXT NOT NULL,
+      ranking_intervals JSONB NOT NULL,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
   `);
 
   await databasePool.query(`
-    UPDATE bot_runtime_config
-    SET ranking_intervals = to_jsonb(ARRAY[
-      interval,
-      COALESCE(confirmation_intervals ->> 0, interval),
-      COALESCE(confirmation_intervals ->> 1, interval)
-    ])
-    WHERE ranking_intervals = '[]'::jsonb;
+    DO $$
+    BEGIN
+      IF EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'bot_runtime_config'
+          AND column_name = 'ranking_intervals'
+      ) THEN
+        EXECUTE '
+          INSERT INTO ranking_runtime_config (id, exchange_id, ranking_intervals)
+          SELECT
+            id,
+            exchange_id,
+            CASE
+              WHEN ranking_intervals = ''[]''::jsonb THEN to_jsonb(ARRAY[
+                interval,
+                COALESCE(confirmation_intervals ->> 0, interval),
+                COALESCE(confirmation_intervals ->> 1, interval)
+              ])
+              ELSE ranking_intervals
+            END
+          FROM bot_runtime_config
+          WHERE id = 1
+          ON CONFLICT (id) DO NOTHING
+        ';
+      END IF;
+    END $$;
   `);
 
   await databasePool.query(
@@ -206,12 +241,11 @@ export async function initializeTradingDatabase(
         symbols,
         interval,
         confirmation_intervals,
-        ranking_intervals,
         analysis_interval_ms,
         initial_quote_balance,
         dca_tranche_quote
       )
-      VALUES ($1, $2, $3, $4::jsonb, $5, $6::jsonb, $7::jsonb, $8, $9, $10)
+      VALUES ($1, $2, $3, $4::jsonb, $5, $6::jsonb, $7, $8, $9)
       ON CONFLICT (id) DO NOTHING
     `,
     [
@@ -221,11 +255,23 @@ export async function initializeTradingDatabase(
       JSON.stringify(seedConfig.symbols),
       seedConfig.interval,
       JSON.stringify(seedConfig.confirmationIntervals),
-      JSON.stringify(seedConfig.rankingIntervals),
       seedConfig.analysisIntervalMs,
       seedConfig.initialQuoteBalance,
       seedConfig.dcaTrancheQuote
     ]
+  );
+
+  await databasePool.query(
+    `
+      INSERT INTO ranking_runtime_config (
+        id,
+        exchange_id,
+        ranking_intervals
+      )
+      VALUES ($1, $2, $3::jsonb)
+      ON CONFLICT (id) DO NOTHING
+    `,
+    [1, seedRankingConfig.exchangeId, JSON.stringify(seedRankingConfig.rankingIntervals)]
   );
 }
 
@@ -236,7 +282,6 @@ export async function loadRuntimeConfig(databaseUrl: string): Promise<RuntimeCon
     symbols: unknown;
     interval: string;
     confirmation_intervals: unknown;
-    ranking_intervals: unknown;
     analysis_interval_ms: number;
     initial_quote_balance: number;
     dca_tranche_quote: number;
@@ -247,7 +292,6 @@ export async function loadRuntimeConfig(databaseUrl: string): Promise<RuntimeCon
       symbols,
       interval,
       confirmation_intervals,
-      ranking_intervals,
       analysis_interval_ms,
       initial_quote_balance,
       dca_tranche_quote
@@ -262,7 +306,6 @@ export async function loadRuntimeConfig(databaseUrl: string): Promise<RuntimeCon
   const row = result.rows[0];
   const symbols = toStringArray(row.symbols, [row.symbol]);
   const confirmationIntervals = toStringArray(row.confirmation_intervals, ["4h", "1d"]);
-  const rankingIntervals = toStringArray(row.ranking_intervals, [row.interval, ...confirmationIntervals]);
 
   return normalizeRuntimeConfig({
     exchangeId: row.exchange_id,
@@ -270,7 +313,6 @@ export async function loadRuntimeConfig(databaseUrl: string): Promise<RuntimeCon
     symbols,
     interval: row.interval,
     confirmationIntervals,
-    rankingIntervals,
     analysisIntervalMs: Number(row.analysis_interval_ms),
     initialQuoteBalance: Number(row.initial_quote_balance),
     dcaTrancheQuote: Number(row.dca_tranche_quote)
@@ -298,10 +340,9 @@ export async function updateRuntimeConfig(
         symbols = $4::jsonb,
         interval = $5,
         confirmation_intervals = $6::jsonb,
-        ranking_intervals = $7::jsonb,
-        analysis_interval_ms = $8,
-        initial_quote_balance = $9,
-        dca_tranche_quote = $10,
+        analysis_interval_ms = $7,
+        initial_quote_balance = $8,
+        dca_tranche_quote = $9,
         updated_at = NOW()
       WHERE id = $1
     `,
@@ -312,11 +353,58 @@ export async function updateRuntimeConfig(
       JSON.stringify(nextConfig.symbols),
       nextConfig.interval,
       JSON.stringify(nextConfig.confirmationIntervals),
-      JSON.stringify(nextConfig.rankingIntervals),
       nextConfig.analysisIntervalMs,
       nextConfig.initialQuoteBalance,
       nextConfig.dcaTrancheQuote
     ]
+  );
+
+  return nextConfig;
+}
+
+export async function loadRankingConfig(databaseUrl: string): Promise<RankingConfigValues> {
+  const result = await getDatabasePool(databaseUrl).query<{
+    exchange_id: string;
+    ranking_intervals: unknown;
+  }>(`
+    SELECT exchange_id, ranking_intervals
+    FROM ranking_runtime_config
+    WHERE id = 1
+  `);
+
+  if (result.rowCount === 0) {
+    throw new Error("Ranking config row was not found in ranking_runtime_config.");
+  }
+
+  const row = result.rows[0];
+
+  return normalizeRankingConfig({
+    exchangeId: row.exchange_id,
+    rankingIntervals: toStringArray(row.ranking_intervals, ["15m", "1h", "4h", "1d"])
+  });
+}
+
+export async function updateRankingConfig(
+  databaseUrl: string,
+  updates: RankingConfigUpdate
+): Promise<RankingConfigValues> {
+  const current = await loadRankingConfig(databaseUrl);
+  const nextConfig = normalizeRankingConfig({
+    ...current,
+    ...updates,
+    rankingIntervals: updates.rankingIntervals ?? current.rankingIntervals
+  });
+
+  await getDatabasePool(databaseUrl).query(
+    `
+      UPDATE ranking_runtime_config
+      SET
+        exchange_id = $2,
+        ranking_intervals = $3::jsonb,
+        updated_at = NOW()
+      WHERE id = $1
+    `,
+    [1, nextConfig.exchangeId, JSON.stringify(nextConfig.rankingIntervals)]
   );
 
   return nextConfig;

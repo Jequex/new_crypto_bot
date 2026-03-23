@@ -1,6 +1,6 @@
 import dotenv from "dotenv";
 
-import { loadRuntimeConfig, RuntimeConfigValues } from "./services/database";
+import { RankingConfigValues, RuntimeConfigValues, loadRuntimeConfig } from "./services/database";
 
 dotenv.config();
 
@@ -124,10 +124,19 @@ export function getRuntimeConfigSeed(): RuntimeConfigValues {
     symbols: readList("SYMBOLS", [symbol]),
     interval: process.env.INTERVAL ?? "1h",
     confirmationIntervals,
-    rankingIntervals: readList("RANKING_INTERVALS", [process.env.INTERVAL ?? "1h", ...confirmationIntervals]),
     analysisIntervalMs: readNumber("ANALYSIS_INTERVAL_MS", 5 * 60 * 1000),
     initialQuoteBalance: readNumber("INITIAL_QUOTE_BALANCE", 10000),
     dcaTrancheQuote: readNumber("DCA_TRANCHE_QUOTE", 250)
+  };
+}
+
+export function getRankingConfigSeed(): RankingConfigValues {
+  const primaryInterval = process.env.INTERVAL ?? "1h";
+  const confirmationIntervals = readList("CONFIRMATION_INTERVALS", ["4h", "1d"]);
+
+  return {
+    exchangeId: process.env.EXCHANGE_ID ?? "binance",
+    rankingIntervals: readList("RANKING_INTERVALS", [primaryInterval, ...confirmationIntervals])
   };
 }
 

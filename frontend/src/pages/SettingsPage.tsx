@@ -1,8 +1,8 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
-import { fetchRuntimeConfig, saveRuntimeConfig } from "../api";
-import { RuntimeConfig } from "../types";
+import { fetchRankingConfig, fetchRuntimeConfig, saveRankingConfig, saveRuntimeConfig } from "../api";
+import { RankingEngineConfig, RuntimeConfig } from "../types";
 
 interface RuntimeConfigFormValues {
   exchangeId: string;
@@ -15,6 +15,11 @@ interface RuntimeConfigFormValues {
   dcaTrancheQuote: string;
 }
 
+interface RankingConfigFormValues {
+  exchangeId: string;
+  rankingIntervals: string;
+}
+
 function configToFormValues(config: RuntimeConfig): RuntimeConfigFormValues {
   return {
     exchangeId: config.exchangeId,
@@ -25,6 +30,13 @@ function configToFormValues(config: RuntimeConfig): RuntimeConfigFormValues {
     analysisIntervalMs: String(config.analysisIntervalMs),
     initialQuoteBalance: String(config.initialQuoteBalance),
     dcaTrancheQuote: String(config.dcaTrancheQuote)
+  };
+}
+
+function rankingConfigToFormValues(config: RankingEngineConfig): RankingConfigFormValues {
+  return {
+    exchangeId: config.exchangeId,
+    rankingIntervals: config.rankingIntervals.join(", ")
   };
 }
 
@@ -47,23 +59,31 @@ function parsePositiveNumber(value: string, fieldLabel: string): number {
 
 export function SettingsPage() {
   const [config, setConfig] = useState<RuntimeConfig | null>(null);
+  const [rankingConfig, setRankingConfig] = useState<RankingEngineConfig | null>(null);
   const [formValues, setFormValues] = useState<RuntimeConfigFormValues | null>(null);
+  const [rankingFormValues, setRankingFormValues] = useState<RankingConfigFormValues | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [isSavingBot, setIsSavingBot] = useState(false);
+  const [isSavingRanking, setIsSavingRanking] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [botError, setBotError] = useState<string | null>(null);
+  const [rankingError, setRankingError] = useState<string | null>(null);
+  const [botSuccessMessage, setBotSuccessMessage] = useState<string | null>(null);
+  const [rankingSuccessMessage, setRankingSuccessMessage] = useState<string | null>(null);
 
-  const loadConfig = () => {
+  const loadSettings = () => {
     setIsLoading(true);
 
-    fetchRuntimeConfig()
-      .then((nextConfig) => {
+    Promise.all([fetchRuntimeConfig(), fetchRankingConfig()])
+      .then(([nextConfig, nextRankingConfig]) => {
         setConfig(nextConfig);
+        setRankingConfig(nextRankingConfig);
         setFormValues(configToFormValues(nextConfig));
-        setError(null);
+        setRankingFormValues(rankingConfigToFormValues(nextRankingConfig));
+        setLoadError(null);
       })
       .catch((requestError: Error) => {
-        setError(requestError.message);
+        setLoadError(requestError.message);
       })
       .finally(() => {
         setIsLoading(false);
@@ -71,20 +91,22 @@ export function SettingsPage() {
   };
 
   useEffect(() => {
-    loadConfig();
+    loadSettings();
   }, []);
 
   const summary = useMemo(() => {
-    if (!config) {
+    if (!config || !rankingConfig) {
       return null;
     }
 
     return {
       trackedSymbols: config.symbols.length,
       confirmationCount: config.confirmationIntervals.length,
-      analysisSeconds: Math.round(config.analysisIntervalMs / 1000)
+      analysisSeconds: Math.round(config.analysisIntervalMs / 1000),
+      rankingExchange: rankingConfig.exchangeId,
+      rankingIntervals: rankingConfig.rankingIntervals.length
     };
-  }, [config]);
+  }, [config, rankingConfig]);
 
   const handleFieldChange = (field: keyof RuntimeConfigFormValues, value: string) => {
     setFormValues((current) => {
@@ -99,17 +121,40 @@ export function SettingsPage() {
     });
   };
 
-  const handleReset = () => {
+  const handleRankingFieldChange = (field: keyof RankingConfigFormValues, value: string) => {
+    setRankingFormValues((current) => {
+      if (!current) {
+        return current;
+      }
+
+      return {
+        ...current,
+        [field]: value
+      };
+    });
+  };
+
+  const handleResetBot = () => {
     if (!config) {
       return;
     }
 
     setFormValues(configToFormValues(config));
-    setError(null);
-    setSuccessMessage(null);
+    setBotError(null);
+    setBotSuccessMessage(null);
   };
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+  const handleResetRanking = () => {
+    if (!rankingConfig) {
+      return;
+    }
+
+    setRankingFormValues(rankingConfigToFormValues(rankingConfig));
+    setRankingError(null);
+    setRankingSuccessMessage(null);
+  };
+
+  const handleSubmitBot = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     if (!formValues) {
@@ -117,9 +162,9 @@ export function SettingsPage() {
     }
 
     try {
-      setIsSaving(true);
-      setError(null);
-      setSuccessMessage(null);
+      setIsSavingBot(true);
+      setBotError(null);
+      setBotSuccessMessage(null);
 
       const updatedConfig = await saveRuntimeConfig({
         exchangeId: formValues.exchangeId.trim(),
@@ -134,12 +179,40 @@ export function SettingsPage() {
 
       setConfig(updatedConfig);
       setFormValues(configToFormValues(updatedConfig));
-      setSuccessMessage("Runtime config updated successfully.");
+      setBotSuccessMessage("Trading bot runtime config updated successfully.");
     } catch (requestError) {
-      const message = requestError instanceof Error ? requestError.message : "Failed to update runtime config.";
-      setError(message);
+      const message = requestError instanceof Error ? requestError.message : "Failed to update trading bot runtime config.";
+      setBotError(message);
     } finally {
-      setIsSaving(false);
+      setIsSavingBot(false);
+    }
+  };
+
+  const handleSubmitRanking = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!rankingFormValues) {
+      return;
+    }
+
+    try {
+      setIsSavingRanking(true);
+      setRankingError(null);
+      setRankingSuccessMessage(null);
+
+      const updatedConfig = await saveRankingConfig({
+        exchangeId: rankingFormValues.exchangeId.trim(),
+        rankingIntervals: parseList(rankingFormValues.rankingIntervals)
+      });
+
+      setRankingConfig(updatedConfig);
+      setRankingFormValues(rankingConfigToFormValues(updatedConfig));
+      setRankingSuccessMessage("Ranking engine config updated successfully.");
+    } catch (requestError) {
+      const message = requestError instanceof Error ? requestError.message : "Failed to update ranking engine config.";
+      setRankingError(message);
+    } finally {
+      setIsSavingRanking(false);
     }
   };
 
@@ -163,9 +236,9 @@ export function SettingsPage() {
               </Link>
             </div>
             <p className="eyebrow">Runtime control</p>
-            <h1>Trading bot settings</h1>
+            <h1>Trading and ranking settings</h1>
             <p className="hero-panel__copy">
-              Update the runtime configuration persisted in the bot database without restarting the frontend.
+              Manage the trading bot runtime and ranking engine runtime independently, with each configuration persisted to its own database record.
             </p>
           </div>
 
@@ -173,145 +246,197 @@ export function SettingsPage() {
             <article className="overview-card">
               <p className="label">Primary symbol</p>
               <strong>{config?.symbol ?? "--"}</strong>
-              <span>Used as the default seed for runtime state</span>
+              <span>Default symbol for the trading bot runtime</span>
             </article>
             <article className="overview-card">
               <p className="label">Tracked symbols</p>
               <strong>{summary?.trackedSymbols ?? 0}</strong>
-              <span>Symbols loaded into the bot runtime config</span>
+              <span>Symbols loaded into the trading bot</span>
             </article>
             <article className="overview-card">
-              <p className="label">Confirmations</p>
-              <strong>{summary?.confirmationCount ?? 0}</strong>
-              <span>Higher timeframe intervals used for alignment</span>
+              <p className="label">Ranking exchange</p>
+              <strong>{summary?.rankingExchange ?? "--"}</strong>
+              <span>Exchange used by the ranking engine</span>
             </article>
             <article className="overview-card overview-card--accent">
-              <p className="label">Analysis cadence</p>
-              <strong>{summary?.analysisSeconds ?? 0}s</strong>
-              <span>Current delay between analysis cycles</span>
+              <p className="label">Ranking intervals</p>
+              <strong>{summary?.rankingIntervals ?? 0}</strong>
+              <span>Timeframes scored by the ranking engine</span>
             </article>
           </div>
         </div>
       </section>
 
       {isLoading ? <div className="status-panel">Loading runtime config...</div> : null}
-      {error ? <div className="status-panel status-panel--error">{error}</div> : null}
-      {successMessage ? <div className="status-panel status-panel--success">{successMessage}</div> : null}
+      {loadError ? <div className="status-panel status-panel--error">{loadError}</div> : null}
 
-      {!isLoading && formValues ? (
-        <form className="settings-form" onSubmit={handleSubmit}>
-          <section className="settings-card settings-card--grid">
-            <div className="settings-field">
-              <label htmlFor="exchangeId">Exchange ID</label>
-              <input
-                id="exchangeId"
-                onChange={(event) => handleFieldChange("exchangeId", event.target.value)}
-                type="text"
-                value={formValues.exchangeId}
-              />
-            </div>
+      {!isLoading && formValues && rankingFormValues ? (
+        <>
+          {botError ? <div className="status-panel status-panel--error">{botError}</div> : null}
+          {botSuccessMessage ? <div className="status-panel status-panel--success">{botSuccessMessage}</div> : null}
+          <form className="settings-form" onSubmit={handleSubmitBot}>
+            <section className="settings-card settings-card--grid">
+              <div className="settings-field">
+                <label htmlFor="exchangeId">Exchange ID</label>
+                <input
+                  id="exchangeId"
+                  onChange={(event) => handleFieldChange("exchangeId", event.target.value)}
+                  type="text"
+                  value={formValues.exchangeId}
+                />
+              </div>
 
-            <div className="settings-field">
-              <label htmlFor="interval">Primary interval</label>
-              <input
-                id="interval"
-                onChange={(event) => handleFieldChange("interval", event.target.value)}
-                type="text"
-                value={formValues.interval}
-              />
-            </div>
+              <div className="settings-field">
+                <label htmlFor="interval">Primary interval</label>
+                <input
+                  id="interval"
+                  onChange={(event) => handleFieldChange("interval", event.target.value)}
+                  type="text"
+                  value={formValues.interval}
+                />
+              </div>
 
-            <div className="settings-field">
-              <label htmlFor="symbol">Primary symbol</label>
-              <input
-                id="symbol"
-                onChange={(event) => handleFieldChange("symbol", event.target.value)}
-                type="text"
-                value={formValues.symbol}
-              />
-            </div>
+              <div className="settings-field">
+                <label htmlFor="symbol">Primary symbol</label>
+                <input
+                  id="symbol"
+                  onChange={(event) => handleFieldChange("symbol", event.target.value)}
+                  type="text"
+                  value={formValues.symbol}
+                />
+              </div>
 
-            <div className="settings-field">
-              <label htmlFor="analysisIntervalMs">Analysis interval in milliseconds</label>
-              <input
-                id="analysisIntervalMs"
-                min="1"
-                onChange={(event) => handleFieldChange("analysisIntervalMs", event.target.value)}
-                step="1"
-                type="number"
-                value={formValues.analysisIntervalMs}
-              />
-            </div>
+              <div className="settings-field">
+                <label htmlFor="analysisIntervalMs">Analysis interval in milliseconds</label>
+                <input
+                  id="analysisIntervalMs"
+                  min="1"
+                  onChange={(event) => handleFieldChange("analysisIntervalMs", event.target.value)}
+                  step="1"
+                  type="number"
+                  value={formValues.analysisIntervalMs}
+                />
+              </div>
 
-            <div className="settings-field settings-field--full">
-              <label htmlFor="symbols">Tracked symbols</label>
-              <textarea
-                id="symbols"
-                onChange={(event) => handleFieldChange("symbols", event.target.value)}
-                rows={4}
-                value={formValues.symbols}
-              />
-              <p className="field-note">Comma-separated list. The primary symbol is automatically preserved by the backend.</p>
-            </div>
+              <div className="settings-field settings-field--full">
+                <label htmlFor="symbols">Tracked symbols</label>
+                <textarea
+                  id="symbols"
+                  onChange={(event) => handleFieldChange("symbols", event.target.value)}
+                  rows={4}
+                  value={formValues.symbols}
+                />
+                <p className="field-note">Comma-separated list. The primary symbol is automatically preserved by the backend.</p>
+              </div>
 
-            <div className="settings-field settings-field--full">
-              <label htmlFor="confirmationIntervals">Confirmation intervals</label>
-              <input
-                id="confirmationIntervals"
-                onChange={(event) => handleFieldChange("confirmationIntervals", event.target.value)}
-                type="text"
-                value={formValues.confirmationIntervals}
-              />
-              <p className="field-note">Comma-separated timeframes like 4h, 1d, 1w.</p>
-            </div>
+              <div className="settings-field settings-field--full">
+                <label htmlFor="confirmationIntervals">Confirmation intervals</label>
+                <input
+                  id="confirmationIntervals"
+                  onChange={(event) => handleFieldChange("confirmationIntervals", event.target.value)}
+                  type="text"
+                  value={formValues.confirmationIntervals}
+                />
+                <p className="field-note">Comma-separated timeframes like 4h, 1d, 1w.</p>
+              </div>
 
-            <div className="settings-field">
-              <label htmlFor="initialQuoteBalance">Initial quote balance</label>
-              <input
-                id="initialQuoteBalance"
-                min="1"
-                onChange={(event) => handleFieldChange("initialQuoteBalance", event.target.value)}
-                step="0.01"
-                type="number"
-                value={formValues.initialQuoteBalance}
-              />
-            </div>
+              <div className="settings-field">
+                <label htmlFor="initialQuoteBalance">Initial quote balance</label>
+                <input
+                  id="initialQuoteBalance"
+                  min="1"
+                  onChange={(event) => handleFieldChange("initialQuoteBalance", event.target.value)}
+                  step="0.01"
+                  type="number"
+                  value={formValues.initialQuoteBalance}
+                />
+              </div>
 
-            <div className="settings-field">
-              <label htmlFor="dcaTrancheQuote">DCA tranche quote</label>
-              <input
-                id="dcaTrancheQuote"
-                min="1"
-                onChange={(event) => handleFieldChange("dcaTrancheQuote", event.target.value)}
-                step="0.01"
-                type="number"
-                value={formValues.dcaTrancheQuote}
-              />
-            </div>
-          </section>
+              <div className="settings-field">
+                <label htmlFor="dcaTrancheQuote">DCA tranche quote</label>
+                <input
+                  id="dcaTrancheQuote"
+                  min="1"
+                  onChange={(event) => handleFieldChange("dcaTrancheQuote", event.target.value)}
+                  step="0.01"
+                  type="number"
+                  value={formValues.dcaTrancheQuote}
+                />
+              </div>
+            </section>
 
-          <section className="settings-card settings-card--actions">
-            <div>
-              <p className="label">Persistence</p>
-              <h2 className="settings-card__title">Save directly to bot runtime config</h2>
-              <p className="hero-panel__copy">
-                Changes are written to the database through the API and become the new runtime baseline for the bot.
-              </p>
-            </div>
+            <section className="settings-card settings-card--actions">
+              <div>
+                <p className="label">Trading bot</p>
+                <h2 className="settings-card__title">Save bot runtime config</h2>
+                <p className="hero-panel__copy">
+                  These settings drive symbol tracking, confirmation timeframes, balances, and trade cycle cadence for the trading bot.
+                </p>
+              </div>
 
-            <div className="settings-actions">
-              <button className="secondary-button" disabled={isSaving} onClick={handleReset} type="button">
-                Reset form
-              </button>
-              <button className="secondary-button" disabled={isSaving} onClick={loadConfig} type="button">
-                Reload from bot
-              </button>
-              <button className="primary-button" disabled={isSaving} type="submit">
-                {isSaving ? "Saving..." : "Save runtime config"}
-              </button>
-            </div>
-          </section>
-        </form>
+              <div className="settings-actions">
+                <button className="secondary-button" disabled={isSavingBot} onClick={handleResetBot} type="button">
+                  Reset form
+                </button>
+                <button className="secondary-button" disabled={isSavingBot || isLoading} onClick={loadSettings} type="button">
+                  Reload from DB
+                </button>
+                <button className="primary-button" disabled={isSavingBot} type="submit">
+                  {isSavingBot ? "Saving..." : "Save bot config"}
+                </button>
+              </div>
+            </section>
+          </form>
+
+          {rankingError ? <div className="status-panel status-panel--error">{rankingError}</div> : null}
+          {rankingSuccessMessage ? <div className="status-panel status-panel--success">{rankingSuccessMessage}</div> : null}
+          <form className="settings-form" onSubmit={handleSubmitRanking}>
+            <section className="settings-card settings-card--grid">
+              <div className="settings-field">
+                <label htmlFor="rankingExchangeId">Ranking exchange ID</label>
+                <input
+                  id="rankingExchangeId"
+                  onChange={(event) => handleRankingFieldChange("exchangeId", event.target.value)}
+                  type="text"
+                  value={rankingFormValues.exchangeId}
+                />
+              </div>
+
+              <div className="settings-field settings-field--full">
+                <label htmlFor="rankingIntervals">Ranking intervals</label>
+                <input
+                  id="rankingIntervals"
+                  onChange={(event) => handleRankingFieldChange("rankingIntervals", event.target.value)}
+                  type="text"
+                  value={rankingFormValues.rankingIntervals}
+                />
+                <p className="field-note">Comma-separated timeframes used only by the ranking engine, for example 15m, 1h, 4h, 1d.</p>
+              </div>
+            </section>
+
+            <section className="settings-card settings-card--actions">
+              <div>
+                <p className="label">Ranking engine</p>
+                <h2 className="settings-card__title">Save ranking engine config</h2>
+                <p className="hero-panel__copy">
+                  These settings are stored independently from the trading bot and control the exchange and timeframe set used for ranking snapshots.
+                </p>
+              </div>
+
+              <div className="settings-actions">
+                <button className="secondary-button" disabled={isSavingRanking} onClick={handleResetRanking} type="button">
+                  Reset form
+                </button>
+                <button className="secondary-button" disabled={isSavingRanking || isLoading} onClick={loadSettings} type="button">
+                  Reload from DB
+                </button>
+                <button className="primary-button" disabled={isSavingRanking} type="submit">
+                  {isSavingRanking ? "Saving..." : "Save ranking config"}
+                </button>
+              </div>
+            </section>
+          </form>
+        </>
       ) : null}
     </main>
   );

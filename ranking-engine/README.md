@@ -44,7 +44,7 @@ The ranking service is attached to the `ranking` profile so it does not start du
 
 ## Configuration
 
-- `DATABASE_URL`: Postgres connection string used to read `exchange_id` and `ranking_intervals` from `bot_runtime_config`
+- `DATABASE_URL`: Postgres connection string used to read `exchange_id` and `ranking_intervals` from `ranking_runtime_config`
 - `EXCHANGE_ID`: fallback exchange used only when `DATABASE_URL` is not set or the DB config is unavailable
 - `RANKING_INTERVALS`: fallback timeframe list used only when `DATABASE_URL` is not set or the DB config is unavailable
 - `LOOKBACK_LIMIT`: candles fetched per timeframe, default `250`

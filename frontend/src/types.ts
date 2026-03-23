@@ -53,10 +53,14 @@ export interface RuntimeConfig {
   symbols: string[];
   interval: string;
   confirmationIntervals: string[];
-  rankingIntervals: string[];
   analysisIntervalMs: number;
   initialQuoteBalance: number;
   dcaTrancheQuote: number;
+}
+
+export interface RankingEngineConfig {
+  exchangeId: string;
+  rankingIntervals: string[];
 }
 
 export type MarketRegime = "bull" | "bear" | "sideways";
@@ -105,6 +109,7 @@ export interface RankingSnapshotResponse {
 }
 
 export type RuntimeConfigUpdate = Partial<RuntimeConfig>;
+export type RankingEngineConfigUpdate = Partial<RankingEngineConfig>;
 
 export interface LogItem {
   id: number;

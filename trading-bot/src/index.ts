@@ -1,4 +1,4 @@
-import { AppConfig, getApiPort, getDatabaseUrl, getRuntimeConfigSeed, loadConfig } from "./config";
+import { AppConfig, getApiPort, getDatabaseUrl, getRankingConfigSeed, getRuntimeConfigSeed, loadConfig } from "./config";
 import { initializeTradingDatabase } from "./services/database";
 import { startApiServer } from "./services/apiServer";
 import { fetchCandles } from "./services/exchangeClient";
@@ -103,7 +103,7 @@ function scheduleNextCycle(databaseUrl: string, delayMs: number): void {
 
 async function main(): Promise<void> {
   const databaseUrl = getDatabaseUrl();
-  await initializeTradingDatabase(databaseUrl, getRuntimeConfigSeed());
+  await initializeTradingDatabase(databaseUrl, getRuntimeConfigSeed(), getRankingConfigSeed());
   await startApiServer(databaseUrl, getApiPort());
   const nextDelayMs = await runAnalysisCycle(databaseUrl);
   scheduleNextCycle(databaseUrl, nextDelayMs);

@@ -1,6 +1,8 @@
 import {
   LogsQuery,
   LogsResponse,
+  RankingEngineConfig,
+  RankingEngineConfigUpdate,
   RankingSnapshotResponse,
   RuntimeConfig,
   RuntimeConfigUpdate,
@@ -30,12 +32,26 @@ export function fetchRuntimeConfig(): Promise<RuntimeConfig> {
   return requestJson<RuntimeConfig>("/api/runtime-config");
 }
 
+export function fetchRankingConfig(): Promise<RankingEngineConfig> {
+  return requestJson<RankingEngineConfig>("/api/ranking-config");
+}
+
 export function fetchRankings(): Promise<RankingSnapshotResponse | null> {
   return requestJson<RankingSnapshotResponse | null>("/api/rankings");
 }
 
 export function saveRuntimeConfig(payload: RuntimeConfigUpdate): Promise<RuntimeConfig> {
   return requestJson<RuntimeConfig>("/api/runtime-config", {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(payload)
+  });
+}
+
+export function saveRankingConfig(payload: RankingEngineConfigUpdate): Promise<RankingEngineConfig> {
+  return requestJson<RankingEngineConfig>("/api/ranking-config", {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json"

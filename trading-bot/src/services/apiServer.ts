@@ -1,7 +1,15 @@
 import { createServer, IncomingMessage, ServerResponse } from "http";
 
 import { loadConfig } from "../config";
-import { RuntimeConfigUpdate, loadLatestRankingSnapshot, loadRuntimeConfig, updateRuntimeConfig } from "./database";
+import {
+  RankingConfigUpdate,
+  RuntimeConfigUpdate,
+  loadLatestRankingSnapshot,
+  loadRankingConfig,
+  loadRuntimeConfig,
+  updateRankingConfig,
+  updateRuntimeConfig
+} from "./database";
 import { BotLogLevel, listBotLogs, logEvent } from "./logger";
 import { listTradeExecutions, listTradingStates } from "./tradingStateStore";
 import { TradingMode } from "../types";
@@ -102,7 +110,6 @@ function parseRuntimeConfigUpdate(payload: unknown): RuntimeConfigUpdate {
     "symbols",
     "interval",
     "confirmationIntervals",
-    "rankingIntervals",
     "analysisIntervalMs",
     "initialQuoteBalance",
     "dcaTrancheQuote"
@@ -134,10 +141,6 @@ function parseRuntimeConfigUpdate(payload: unknown): RuntimeConfigUpdate {
     update.confirmationIntervals = parseStringArray(body.confirmationIntervals, "confirmationIntervals");
   }
 
-  if (body.rankingIntervals !== undefined) {
-    update.rankingIntervals = parseStringArray(body.rankingIntervals, "rankingIntervals");
-  }
-
   if (body.analysisIntervalMs !== undefined) {
     update.analysisIntervalMs = parsePositiveNumber(body.analysisIntervalMs, "analysisIntervalMs");
   }
@@ -152,6 +155,36 @@ function parseRuntimeConfigUpdate(payload: unknown): RuntimeConfigUpdate {
 
   if (Object.keys(update).length === 0) {
     throw new Error("At least one runtime config field must be provided.");
+  }
+
+  return update;
+}
+
+function parseRankingConfigUpdate(payload: unknown): RankingConfigUpdate {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    throw new Error("Request body must be a JSON object.");
+  }
+
+  const body = payload as Record<string, unknown>;
+  const update: RankingConfigUpdate = {};
+  const allowedKeys = new Set(["exchangeId", "rankingIntervals"]);
+
+  for (const key of Object.keys(body)) {
+    if (!allowedKeys.has(key)) {
+      throw new Error(`Unsupported ranking config field: ${key}.`);
+    }
+  }
+
+  if (body.exchangeId !== undefined) {
+    update.exchangeId = parseString(body.exchangeId, "exchangeId");
+  }
+
+  if (body.rankingIntervals !== undefined) {
+    update.rankingIntervals = parseStringArray(body.rankingIntervals, "rankingIntervals");
+  }
+
+  if (Object.keys(update).length === 0) {
+    throw new Error("At least one ranking config field must be provided.");
   }
 
   return update;
@@ -184,6 +217,11 @@ export async function startApiServer(databaseUrl: string, port: number): Promise
         return;
       }
 
+      if (request.method === "GET" && path === "/api/ranking-config") {
+        sendJson(response, 200, await loadRankingConfig(databaseUrl));
+        return;
+      }
+
       if (request.method === "GET" && path === "/api/rankings") {
         sendJson(response, 200, await loadLatestRankingSnapshot(databaseUrl));
         return;
@@ -192,6 +230,13 @@ export async function startApiServer(databaseUrl: string, port: number): Promise
       if ((request.method === "PATCH" || request.method === "PUT") && path === "/api/runtime-config") {
         const body = await readJsonBody(request);
         const updatedConfig = await updateRuntimeConfig(databaseUrl, parseRuntimeConfigUpdate(body));
+        sendJson(response, 200, updatedConfig);
+        return;
+      }
+
+      if ((request.method === "PATCH" || request.method === "PUT") && path === "/api/ranking-config") {
+        const body = await readJsonBody(request);
+        const updatedConfig = await updateRankingConfig(databaseUrl, parseRankingConfigUpdate(body));
         sendJson(response, 200, updatedConfig);
         return;
       }

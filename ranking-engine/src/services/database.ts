@@ -24,18 +24,43 @@ function toStringArray(value: unknown, fallback: string[]): string[] {
 
 async function ensureRankingIntervalsColumn(databaseUrl: string): Promise<void> {
   await getDatabasePool(databaseUrl).query(`
-    ALTER TABLE bot_runtime_config
-    ADD COLUMN IF NOT EXISTS ranking_intervals JSONB NOT NULL DEFAULT '[]'::jsonb;
+    CREATE TABLE IF NOT EXISTS ranking_runtime_config (
+      id SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+      exchange_id TEXT NOT NULL,
+      ranking_intervals JSONB NOT NULL,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
   `);
 
   await getDatabasePool(databaseUrl).query(`
-    UPDATE bot_runtime_config
-    SET ranking_intervals = to_jsonb(ARRAY[
-      interval,
-      COALESCE(confirmation_intervals ->> 0, interval),
-      COALESCE(confirmation_intervals ->> 1, interval)
-    ])
-    WHERE ranking_intervals = '[]'::jsonb;
+    DO $$
+    BEGIN
+      IF EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'bot_runtime_config'
+          AND column_name = 'ranking_intervals'
+      ) THEN
+        EXECUTE '
+          INSERT INTO ranking_runtime_config (id, exchange_id, ranking_intervals)
+          SELECT
+            id,
+            exchange_id,
+            CASE
+              WHEN ranking_intervals = ''[]''::jsonb THEN to_jsonb(ARRAY[
+                interval,
+                COALESCE(confirmation_intervals ->> 0, interval),
+                COALESCE(confirmation_intervals ->> 1, interval)
+              ])
+              ELSE ranking_intervals
+            END
+          FROM bot_runtime_config
+          WHERE id = 1
+          ON CONFLICT (id) DO NOTHING
+        ';
+      END IF;
+    END $$;
   `);
 }
 
@@ -64,29 +89,24 @@ export async function loadDatabaseRuntimeConfig(databaseUrl: string): Promise<{
 
   const result = await getDatabasePool(databaseUrl).query<{
     exchange_id: string;
-    interval: string;
-    confirmation_intervals: unknown;
     ranking_intervals: unknown;
   }>(`
     SELECT
       exchange_id,
-      interval,
-      confirmation_intervals,
       ranking_intervals
-    FROM bot_runtime_config
+    FROM ranking_runtime_config
     WHERE id = 1
   `);
 
   if (result.rowCount === 0) {
-    throw new Error("Runtime config row was not found in bot_runtime_config.");
+    throw new Error("Ranking config row was not found in ranking_runtime_config.");
   }
 
   const row = result.rows[0];
-  const confirmationIntervals = toStringArray(row.confirmation_intervals, ["4h", "1d"]);
 
   return {
     exchangeId: row.exchange_id,
-    rankingIntervals: toStringArray(row.ranking_intervals, [row.interval, ...confirmationIntervals])
+    rankingIntervals: toStringArray(row.ranking_intervals, ["15m", "1h", "4h", "1d"])
   };
 }
 
