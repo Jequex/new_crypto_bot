@@ -54,7 +54,7 @@ function printTable(rankings: PairRanking[], outputLimit?: number): void {
 }
 
 async function main(): Promise<void> {
-  const config = loadConfig();
+  const config = await loadConfig();
   const rankings = await rankPairs(config);
 
   if (config.outputFormat === "json") {

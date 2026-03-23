@@ -1,5 +1,6 @@
 import dotenv from "dotenv";
 
+import { loadDatabaseRuntimeConfig } from "./services/database";
 import { RankingConfig } from "./types";
 
 dotenv.config();
@@ -51,10 +52,17 @@ function readOutputFormat(): "table" | "json" {
   return process.env.OUTPUT_FORMAT === "json" ? "json" : "table";
 }
 
-export function loadConfig(): RankingConfig {
+function getDatabaseUrl(): string | undefined {
+  return process.env.DATABASE_URL;
+}
+
+export async function loadConfig(): Promise<RankingConfig> {
+  const databaseUrl = getDatabaseUrl();
+  const runtimeConfig = databaseUrl ? await loadDatabaseRuntimeConfig(databaseUrl) : undefined;
+
   return {
-    exchangeId: process.env.EXCHANGE_ID ?? "binance",
-    intervals: readList("RANKING_INTERVALS", ["15m", "1h", "4h", "1d"]),
+    exchangeId: runtimeConfig?.exchangeId ?? process.env.EXCHANGE_ID ?? "binance",
+    intervals: runtimeConfig?.rankingIntervals ?? readList("RANKING_INTERVALS", ["15m", "1h", "4h", "1d"]),
     lookbackLimit: readNumber("LOOKBACK_LIMIT", 250),
     concurrency: readNumber("RANKING_CONCURRENCY", 4),
     quoteCurrencies: readList("QUOTE_CURRENCIES", []),

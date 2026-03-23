@@ -102,6 +102,7 @@ function parseRuntimeConfigUpdate(payload: unknown): RuntimeConfigUpdate {
     "symbols",
     "interval",
     "confirmationIntervals",
+    "rankingIntervals",
     "analysisIntervalMs",
     "initialQuoteBalance",
     "dcaTrancheQuote"
@@ -131,6 +132,10 @@ function parseRuntimeConfigUpdate(payload: unknown): RuntimeConfigUpdate {
 
   if (body.confirmationIntervals !== undefined) {
     update.confirmationIntervals = parseStringArray(body.confirmationIntervals, "confirmationIntervals");
+  }
+
+  if (body.rankingIntervals !== undefined) {
+    update.rankingIntervals = parseStringArray(body.rankingIntervals, "rankingIntervals");
   }
 
   if (body.analysisIntervalMs !== undefined) {

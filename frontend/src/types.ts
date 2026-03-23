@@ -53,6 +53,7 @@ export interface RuntimeConfig {
   symbols: string[];
   interval: string;
   confirmationIntervals: string[];
+  rankingIntervals: string[];
   analysisIntervalMs: number;
   initialQuoteBalance: number;
   dcaTrancheQuote: number;

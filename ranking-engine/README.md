@@ -44,8 +44,9 @@ The ranking service is attached to the `ranking` profile so it does not start du
 
 ## Configuration
 
-- `EXCHANGE_ID`: exchange supported by `ccxt`, default `binance`
-- `RANKING_INTERVALS`: comma-separated timeframes, default `15m,1h,4h,1d`
+- `DATABASE_URL`: Postgres connection string used to read `exchange_id` and `ranking_intervals` from `bot_runtime_config`
+- `EXCHANGE_ID`: fallback exchange used only when `DATABASE_URL` is not set or the DB config is unavailable
+- `RANKING_INTERVALS`: fallback timeframe list used only when `DATABASE_URL` is not set or the DB config is unavailable
 - `LOOKBACK_LIMIT`: candles fetched per timeframe, default `250`
 - `RANKING_CONCURRENCY`: number of pairs processed in parallel, default `4`
 - `QUOTE_CURRENCIES`: optional comma-separated quote filters such as `USDT,USDC`

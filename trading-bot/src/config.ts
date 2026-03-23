@@ -116,13 +116,15 @@ export function getApiPort(): number {
 
 export function getRuntimeConfigSeed(): RuntimeConfigValues {
   const symbol = process.env.SYMBOL ?? "BTC/USDT";
+  const confirmationIntervals = readList("CONFIRMATION_INTERVALS", ["4h", "1d"]);
 
   return {
     exchangeId: process.env.EXCHANGE_ID ?? "binance",
     symbol,
     symbols: readList("SYMBOLS", [symbol]),
     interval: process.env.INTERVAL ?? "1h",
-    confirmationIntervals: readList("CONFIRMATION_INTERVALS", ["4h", "1d"]),
+    confirmationIntervals,
+    rankingIntervals: readList("RANKING_INTERVALS", [process.env.INTERVAL ?? "1h", ...confirmationIntervals]),
     analysisIntervalMs: readNumber("ANALYSIS_INTERVAL_MS", 5 * 60 * 1000),
     initialQuoteBalance: readNumber("INITIAL_QUOTE_BALANCE", 10000),
     dcaTrancheQuote: readNumber("DCA_TRANCHE_QUOTE", 250)

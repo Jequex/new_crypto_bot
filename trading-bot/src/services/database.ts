@@ -6,6 +6,7 @@ export interface RuntimeConfigValues {
   symbols: string[];
   interval: string;
   confirmationIntervals: string[];
+  rankingIntervals: string[];
   analysisIntervalMs: number;
   initialQuoteBalance: number;
   dcaTrancheQuote: number;
@@ -43,6 +44,9 @@ function normalizeRuntimeConfig(values: RuntimeConfigValues): RuntimeConfigValue
   const confirmationIntervals = unique(
     values.confirmationIntervals.map((value) => value.trim()).filter((value) => value.length > 0)
   );
+  const rankingIntervals = unique(
+    values.rankingIntervals.map((value) => value.trim()).filter((value) => value.length > 0)
+  );
 
   return {
     exchangeId: values.exchangeId.trim(),
@@ -50,6 +54,7 @@ function normalizeRuntimeConfig(values: RuntimeConfigValues): RuntimeConfigValue
     symbols,
     interval: values.interval.trim(),
     confirmationIntervals,
+    rankingIntervals,
     analysisIntervalMs: values.analysisIntervalMs,
     initialQuoteBalance: values.initialQuoteBalance,
     dcaTrancheQuote: values.dcaTrancheQuote
@@ -140,11 +145,27 @@ export async function initializeTradingDatabase(
       symbols JSONB NOT NULL,
       interval TEXT NOT NULL,
       confirmation_intervals JSONB NOT NULL,
+      ranking_intervals JSONB NOT NULL DEFAULT '[]'::jsonb,
       analysis_interval_ms INTEGER NOT NULL,
       initial_quote_balance DOUBLE PRECISION NOT NULL,
       dca_tranche_quote DOUBLE PRECISION NOT NULL,
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+  `);
+
+  await databasePool.query(`
+    ALTER TABLE bot_runtime_config
+    ADD COLUMN IF NOT EXISTS ranking_intervals JSONB NOT NULL DEFAULT '[]'::jsonb;
+  `);
+
+  await databasePool.query(`
+    UPDATE bot_runtime_config
+    SET ranking_intervals = to_jsonb(ARRAY[
+      interval,
+      COALESCE(confirmation_intervals ->> 0, interval),
+      COALESCE(confirmation_intervals ->> 1, interval)
+    ])
+    WHERE ranking_intervals = '[]'::jsonb;
   `);
 
   await databasePool.query(
@@ -156,11 +177,12 @@ export async function initializeTradingDatabase(
         symbols,
         interval,
         confirmation_intervals,
+        ranking_intervals,
         analysis_interval_ms,
         initial_quote_balance,
         dca_tranche_quote
       )
-      VALUES ($1, $2, $3, $4::jsonb, $5, $6::jsonb, $7, $8, $9)
+      VALUES ($1, $2, $3, $4::jsonb, $5, $6::jsonb, $7::jsonb, $8, $9, $10)
       ON CONFLICT (id) DO NOTHING
     `,
     [
@@ -170,6 +192,7 @@ export async function initializeTradingDatabase(
       JSON.stringify(seedConfig.symbols),
       seedConfig.interval,
       JSON.stringify(seedConfig.confirmationIntervals),
+      JSON.stringify(seedConfig.rankingIntervals),
       seedConfig.analysisIntervalMs,
       seedConfig.initialQuoteBalance,
       seedConfig.dcaTrancheQuote
@@ -184,6 +207,7 @@ export async function loadRuntimeConfig(databaseUrl: string): Promise<RuntimeCon
     symbols: unknown;
     interval: string;
     confirmation_intervals: unknown;
+    ranking_intervals: unknown;
     analysis_interval_ms: number;
     initial_quote_balance: number;
     dca_tranche_quote: number;
@@ -194,6 +218,7 @@ export async function loadRuntimeConfig(databaseUrl: string): Promise<RuntimeCon
       symbols,
       interval,
       confirmation_intervals,
+      ranking_intervals,
       analysis_interval_ms,
       initial_quote_balance,
       dca_tranche_quote
@@ -207,13 +232,16 @@ export async function loadRuntimeConfig(databaseUrl: string): Promise<RuntimeCon
 
   const row = result.rows[0];
   const symbols = toStringArray(row.symbols, [row.symbol]);
+  const confirmationIntervals = toStringArray(row.confirmation_intervals, ["4h", "1d"]);
+  const rankingIntervals = toStringArray(row.ranking_intervals, [row.interval, ...confirmationIntervals]);
 
   return normalizeRuntimeConfig({
     exchangeId: row.exchange_id,
     symbol: row.symbol,
     symbols,
     interval: row.interval,
-    confirmationIntervals: toStringArray(row.confirmation_intervals, ["4h", "1d"]),
+    confirmationIntervals,
+    rankingIntervals,
     analysisIntervalMs: Number(row.analysis_interval_ms),
     initialQuoteBalance: Number(row.initial_quote_balance),
     dcaTrancheQuote: Number(row.dca_tranche_quote)
@@ -241,9 +269,10 @@ export async function updateRuntimeConfig(
         symbols = $4::jsonb,
         interval = $5,
         confirmation_intervals = $6::jsonb,
-        analysis_interval_ms = $7,
-        initial_quote_balance = $8,
-        dca_tranche_quote = $9,
+        ranking_intervals = $7::jsonb,
+        analysis_interval_ms = $8,
+        initial_quote_balance = $9,
+        dca_tranche_quote = $10,
         updated_at = NOW()
       WHERE id = $1
     `,
@@ -254,6 +283,7 @@ export async function updateRuntimeConfig(
       JSON.stringify(nextConfig.symbols),
       nextConfig.interval,
       JSON.stringify(nextConfig.confirmationIntervals),
+      JSON.stringify(nextConfig.rankingIntervals),
       nextConfig.analysisIntervalMs,
       nextConfig.initialQuoteBalance,
       nextConfig.dcaTrancheQuote
