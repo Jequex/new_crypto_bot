@@ -61,19 +61,22 @@ npm run dev
 
 `npm run dev` now uses `nodemon`, so changes under `trading-bot/src` restart the process automatically.
 
-The default configuration expects PostgreSQL at `postgresql://postgres:postgres@localhost:5432/trading_bot`.
+The default local non-Docker configuration expects PostgreSQL at `postgresql://postgres:postgres@localhost:5432/trading_bot`.
 
 The bot now stores these runtime settings in the database instead of `.env`: exchange, primary symbol, symbol list, interval set, analysis cadence, initial quote balance, and DCA tranche size.
 
-An HTTP API is exposed on port `3000` by default.
+An HTTP API is exposed on port `3100` by default.
 
 ## Run with Docker
 
 From the repository root, start the bot and PostgreSQL together:
 
 ```bash
+cp .env.example .env
 docker compose up --build
 ```
+
+For Docker deployments, the repository root `.env` is the single source of truth for compose-level settings such as `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `API_PORT`, and the ranking-engine runtime defaults. Keep database credentials there so the `db`, `trading-bot`, and `ranking-engine` containers all use the same values.
 
 The compose stack includes:
 
@@ -95,7 +98,7 @@ npm install
 npm run dev
 ```
 
-The Vite dev server starts on `http://localhost:5173` and proxies API calls to `http://localhost:3000`.
+The Vite dev server starts on `http://localhost:5173` and proxies API calls to `http://localhost:3100`.
 
 For the containerized frontend, use:
 
@@ -123,7 +126,7 @@ Frontend routes:
 Example runtime config update:
 
 ```bash
-curl -X PATCH http://localhost:3000/api/runtime-config \
+curl -X PATCH http://localhost:3100/api/runtime-config \
   -H "Content-Type: application/json" \
   -d '{
     "symbols": ["XAN/USDT", "CTA/USDT", "QNT/USDT"],
@@ -135,9 +138,9 @@ curl -X PATCH http://localhost:3000/api/runtime-config \
 Example paginated trade query:
 
 ```bash
-curl "http://localhost:3000/api/trades?symbol=CTA/USDT&page=1&pageSize=20"
+curl "http://localhost:3100/api/trades?symbol=CTA/USDT&page=1&pageSize=20"
 
-curl "http://localhost:3000/api/logs?page=1&pageSize=20"
+curl "http://localhost:3100/api/logs?page=1&pageSize=20"
 ```
 
 To inspect recent executions from the database:
@@ -170,7 +173,7 @@ The main bot output now includes both `analysis` and `trading` objects.
 - `AI_RETURN_THRESHOLD`: Return threshold used to label training samples as bull, bear, or sideways
 - `TRADING_ENABLED`: Enables the automated trading layer
 - `TRADING_MODE`: `paper` or `live`
-- `DATABASE_URL`: PostgreSQL connection string used for trading state and trade history
+- `DATABASE_URL`: PostgreSQL connection string used for local non-Docker runs; in Docker Compose this is injected automatically from the repository root `.env`
 - Database runtime config: `EXCHANGE_ID`, `SYMBOL`, `SYMBOLS`, `INTERVAL`, `CONFIRMATION_INTERVALS`, `ANALYSIS_INTERVAL_MS`, `INITIAL_QUOTE_BALANCE`, and `DCA_TRANCHE_QUOTE` are now stored in `bot_runtime_config`
 - `TRADING_MIN_CONFIDENCE`: Minimum confirmed regime confidence required to activate a strategy
 - `INITIAL_BASE_BALANCE`: Starting paper base balance
