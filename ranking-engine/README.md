@@ -17,6 +17,7 @@ Pairs with unanimous or near-unanimous timeframe agreement rise to the top of th
 ```bash
 cd ranking-engine
 npm install
+cp .env.example .env
 ```
 
 ## Run
@@ -32,6 +33,14 @@ Build and run the compiled output:
 npm run build
 npm start
 ```
+
+Run it through Docker Compose from the repository root:
+
+```bash
+docker compose --profile ranking up --build ranking-engine
+```
+
+The ranking service is attached to the `ranking` profile so it does not start during the default app stack launch.
 
 ## Configuration
 

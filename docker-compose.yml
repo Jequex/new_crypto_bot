@@ -43,5 +43,24 @@ services:
       trading-bot:
         condition: service_started
 
+  ranking-engine:
+    build:
+      context: ./ranking-engine
+      dockerfile: Dockerfile
+    profiles:
+      - ranking
+    restart: "no"
+    environment:
+      EXCHANGE_ID: ${RANKING_EXCHANGE_ID:-binance}
+      RANKING_INTERVALS: ${RANKING_INTERVALS:-15m,1h,4h,1d}
+      LOOKBACK_LIMIT: ${RANKING_LOOKBACK_LIMIT:-250}
+      RANKING_CONCURRENCY: ${RANKING_CONCURRENCY:-4}
+      QUOTE_CURRENCIES: ${RANKING_QUOTE_CURRENCIES:-USDT}
+      MAX_PAIRS: ${RANKING_MAX_PAIRS:-25}
+      OUTPUT_FORMAT: ${RANKING_OUTPUT_FORMAT:-table}
+      OUTPUT_LIMIT: ${RANKING_OUTPUT_LIMIT:-25}
+      EXCHANGE_TIMEOUT_MS: ${RANKING_EXCHANGE_TIMEOUT_MS:-30000}
+      EXCHANGE_RETRY_COUNT: ${RANKING_EXCHANGE_RETRY_COUNT:-2}
+
 volumes:
   postgres-data:
