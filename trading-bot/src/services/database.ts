@@ -19,6 +19,7 @@ export type RuntimeConfigUpdate = Partial<RuntimeConfigValues>;
 export interface RankingConfigValues {
   exchangeId: string;
   rankingIntervals: string[];
+  rankingConcurrency: number;
 }
 
 export type RankingConfigUpdate = Partial<RankingConfigValues>;
@@ -62,7 +63,8 @@ function parseRankingItems(value: unknown): RankingSnapshotItem[] {
 function normalizeRankingConfig(values: RankingConfigValues): RankingConfigValues {
   return {
     exchangeId: values.exchangeId.trim(),
-    rankingIntervals: unique(values.rankingIntervals.map((value) => value.trim()).filter((value) => value.length > 0))
+    rankingIntervals: unique(values.rankingIntervals.map((value) => value.trim()).filter((value) => value.length > 0)),
+    rankingConcurrency: values.rankingConcurrency
   };
 }
 
@@ -216,8 +218,25 @@ export async function initializeTradingDatabase(
       id SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
       exchange_id TEXT NOT NULL,
       ranking_intervals JSONB NOT NULL,
+      ranking_concurrency INTEGER NOT NULL DEFAULT 4,
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+  `);
+
+  await databasePool.query(`
+    ALTER TABLE ranking_runtime_config
+    ADD COLUMN IF NOT EXISTS ranking_concurrency INTEGER;
+  `);
+
+  await databasePool.query(`
+    UPDATE ranking_runtime_config
+    SET ranking_concurrency = 4
+    WHERE ranking_concurrency IS NULL OR ranking_concurrency <= 0;
+  `);
+
+  await databasePool.query(`
+    ALTER TABLE ranking_runtime_config
+    ALTER COLUMN ranking_concurrency SET NOT NULL;
   `);
 
   await databasePool.query(`
@@ -231,7 +250,7 @@ export async function initializeTradingDatabase(
           AND column_name = 'ranking_intervals'
       ) THEN
         EXECUTE '
-          INSERT INTO ranking_runtime_config (id, exchange_id, ranking_intervals)
+          INSERT INTO ranking_runtime_config (id, exchange_id, ranking_intervals, ranking_concurrency)
           SELECT
             id,
             exchange_id,
@@ -242,7 +261,8 @@ export async function initializeTradingDatabase(
                 COALESCE(confirmation_intervals ->> 1, interval)
               ])
               ELSE ranking_intervals
-            END
+            END,
+            4
           FROM bot_runtime_config
           WHERE id = 1
           ON CONFLICT (id) DO NOTHING
@@ -287,12 +307,13 @@ export async function initializeTradingDatabase(
       INSERT INTO ranking_runtime_config (
         id,
         exchange_id,
-        ranking_intervals
+        ranking_intervals,
+        ranking_concurrency
       )
-      VALUES ($1, $2, $3::jsonb)
+      VALUES ($1, $2, $3::jsonb, $4)
       ON CONFLICT (id) DO NOTHING
     `,
-    [1, seedRankingConfig.exchangeId, JSON.stringify(seedRankingConfig.rankingIntervals)]
+    [1, seedRankingConfig.exchangeId, JSON.stringify(seedRankingConfig.rankingIntervals), seedRankingConfig.rankingConcurrency]
   );
 }
 
@@ -392,8 +413,9 @@ export async function loadRankingConfig(databaseUrl: string): Promise<RankingCon
   const result = await getDatabasePool(databaseUrl).query<{
     exchange_id: string;
     ranking_intervals: unknown;
+    ranking_concurrency: number;
   }>(`
-    SELECT exchange_id, ranking_intervals
+    SELECT exchange_id, ranking_intervals, ranking_concurrency
     FROM ranking_runtime_config
     WHERE id = 1
   `);
@@ -406,7 +428,8 @@ export async function loadRankingConfig(databaseUrl: string): Promise<RankingCon
 
   return normalizeRankingConfig({
     exchangeId: row.exchange_id,
-    rankingIntervals: toStringArray(row.ranking_intervals, ["15m", "1h", "4h", "1d"])
+    rankingIntervals: toStringArray(row.ranking_intervals, ["15m", "1h", "4h", "1d"]),
+    rankingConcurrency: Number(row.ranking_concurrency)
   });
 }
 
@@ -427,10 +450,11 @@ export async function updateRankingConfig(
       SET
         exchange_id = $2,
         ranking_intervals = $3::jsonb,
+        ranking_concurrency = $4,
         updated_at = NOW()
       WHERE id = $1
     `,
-    [1, nextConfig.exchangeId, JSON.stringify(nextConfig.rankingIntervals)]
+    [1, nextConfig.exchangeId, JSON.stringify(nextConfig.rankingIntervals), nextConfig.rankingConcurrency]
   );
 
   return nextConfig;

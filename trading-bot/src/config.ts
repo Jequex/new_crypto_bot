@@ -140,7 +140,8 @@ export function getRankingConfigSeed(): RankingConfigValues {
 
   return {
     exchangeId: process.env.EXCHANGE_ID ?? "binance",
-    rankingIntervals: readList("RANKING_INTERVALS", [primaryInterval, ...confirmationIntervals])
+    rankingIntervals: readList("RANKING_INTERVALS", [primaryInterval, ...confirmationIntervals]),
+    rankingConcurrency: readNumber("RANKING_CONCURRENCY", 4)
   };
 }
 

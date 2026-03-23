@@ -19,6 +19,7 @@ interface RuntimeConfigFormValues {
 interface RankingConfigFormValues {
   exchangeId: string;
   rankingIntervals: string;
+  rankingConcurrency: string;
 }
 
 function configToFormValues(config: RuntimeConfig): RuntimeConfigFormValues {
@@ -38,7 +39,8 @@ function configToFormValues(config: RuntimeConfig): RuntimeConfigFormValues {
 function rankingConfigToFormValues(config: RankingEngineConfig): RankingConfigFormValues {
   return {
     exchangeId: config.exchangeId,
-    rankingIntervals: config.rankingIntervals.join(", ")
+    rankingIntervals: config.rankingIntervals.join(", "),
+    rankingConcurrency: String(config.rankingConcurrency)
   };
 }
 
@@ -106,7 +108,8 @@ export function SettingsPage() {
       confirmationCount: config.confirmationIntervals.length,
       analysisSeconds: Math.round(config.analysisIntervalMs / 1000),
       rankingExchange: rankingConfig.exchangeId,
-      rankingIntervals: rankingConfig.rankingIntervals.length
+      rankingIntervals: rankingConfig.rankingIntervals.length,
+      rankingConcurrency: rankingConfig.rankingConcurrency
     };
   }, [config, rankingConfig]);
 
@@ -205,7 +208,8 @@ export function SettingsPage() {
 
       const updatedConfig = await saveRankingConfig({
         exchangeId: rankingFormValues.exchangeId.trim(),
-        rankingIntervals: parseList(rankingFormValues.rankingIntervals)
+        rankingIntervals: parseList(rankingFormValues.rankingIntervals),
+        rankingConcurrency: parsePositiveNumber(rankingFormValues.rankingConcurrency, "Ranking concurrency")
       });
 
       setRankingConfig(updatedConfig);
@@ -265,6 +269,11 @@ export function SettingsPage() {
               <p className="label">Ranking intervals</p>
               <strong>{summary?.rankingIntervals ?? 0}</strong>
               <span>Timeframes scored by the ranking engine</span>
+            </article>
+            <article className="overview-card">
+              <p className="label">Ranking concurrency</p>
+              <strong>{summary?.rankingConcurrency ?? 0}</strong>
+              <span>Pairs processed in parallel per ranking run</span>
             </article>
           </div>
         </div>
@@ -426,6 +435,19 @@ export function SettingsPage() {
                   value={rankingFormValues.rankingIntervals}
                 />
                 <p className="field-note">Comma-separated timeframes used only by the ranking engine, for example 15m, 1h, 4h, 1d.</p>
+              </div>
+
+              <div className="settings-field">
+                <label htmlFor="rankingConcurrency">Ranking concurrency</label>
+                <input
+                  id="rankingConcurrency"
+                  min="1"
+                  onChange={(event) => handleRankingFieldChange("rankingConcurrency", event.target.value)}
+                  step="1"
+                  type="number"
+                  value={rankingFormValues.rankingConcurrency}
+                />
+                <p className="field-note">How many pairs the ranking engine should process in parallel.</p>
               </div>
             </section>
 

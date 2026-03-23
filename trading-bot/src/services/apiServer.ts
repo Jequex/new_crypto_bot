@@ -172,7 +172,7 @@ function parseRankingConfigUpdate(payload: unknown): RankingConfigUpdate {
 
   const body = payload as Record<string, unknown>;
   const update: RankingConfigUpdate = {};
-  const allowedKeys = new Set(["exchangeId", "rankingIntervals"]);
+  const allowedKeys = new Set(["exchangeId", "rankingIntervals", "rankingConcurrency"]);
 
   for (const key of Object.keys(body)) {
     if (!allowedKeys.has(key)) {
@@ -186,6 +186,10 @@ function parseRankingConfigUpdate(payload: unknown): RankingConfigUpdate {
 
   if (body.rankingIntervals !== undefined) {
     update.rankingIntervals = parseStringArray(body.rankingIntervals, "rankingIntervals");
+  }
+
+  if (body.rankingConcurrency !== undefined) {
+    update.rankingConcurrency = parsePositiveNumber(body.rankingConcurrency, "rankingConcurrency");
   }
 
   if (Object.keys(update).length === 0) {

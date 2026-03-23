@@ -64,7 +64,7 @@ export async function loadConfig(): Promise<RankingConfig> {
     exchangeId: runtimeConfig?.exchangeId ?? process.env.EXCHANGE_ID ?? "binance",
     intervals: runtimeConfig?.rankingIntervals ?? readList("RANKING_INTERVALS", ["15m", "1h", "4h", "1d"]),
     lookbackLimit: readNumber("LOOKBACK_LIMIT", 250),
-    concurrency: readNumber("RANKING_CONCURRENCY", 4),
+    concurrency: runtimeConfig?.rankingConcurrency ?? readNumber("RANKING_CONCURRENCY", 4),
     quoteCurrencies: readList("QUOTE_CURRENCIES", []),
     maxPairs: readOptionalNumber("MAX_PAIRS"),
     outputFormat: readOutputFormat(),

@@ -62,6 +62,7 @@ export interface RuntimeConfig {
 export interface RankingEngineConfig {
   exchangeId: string;
   rankingIntervals: string[];
+  rankingConcurrency: number;
 }
 
 export type MarketRegime = "bull" | "bear" | "sideways";
