@@ -1,4 +1,4 @@
-import * as tf from "@tensorflow/tfjs";
+import * as tf from "@tensorflow/tfjs-node";
 import { ADX, ATR, EMA, RSI, SMA } from "technicalindicators";
 
 import { AiStrategyResult, Candle, MarketRegime } from "../types";

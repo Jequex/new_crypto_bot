@@ -222,8 +222,10 @@ export async function listTradingStates(
       values
     );
 
-    return Promise.all(
-      stateResult.rows.map(async (row) => ({
+    const states: TradingState[] = [];
+
+    for (const row of stateResult.rows) {
+      states.push({
         symbol: row.symbol,
         mode: row.mode,
         activeStrategy: row.active_strategy,
@@ -253,8 +255,10 @@ export async function listTradingStates(
         },
         tradeHistory: await loadTradeHistory(client, row.symbol, row.mode, config.maxTradeHistory),
         lastUpdated: normalizeTimestamp(row.last_updated)
-      }))
-    );
+      });
+    }
+
+    return states;
   });
 }
 

@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@tensorflow/tfjs": "^4.22.0",
+    "@tensorflow/tfjs-node": "^4.22.0",
     "ccxt": "^4.4.78",
     "dotenv": "^16.4.7",
     "pg": "^8.20.0",
