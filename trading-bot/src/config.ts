@@ -31,6 +31,10 @@ export interface AppConfig {
     mode: "paper" | "live";
     databaseUrl: string;
     minConfidence: number;
+    regimePersistence: {
+      entryCycles: number;
+      exitCycles: number;
+    };
     initialQuoteBalance: number;
     initialBaseBalance: number;
     feeRate: number;
@@ -164,28 +168,32 @@ const staticConfig = {
   trading: {
     enabled: readBoolean("TRADING_ENABLED", true),
     mode: readTradingMode("TRADING_MODE", "paper"),
-    minConfidence: readNumber("TRADING_MIN_CONFIDENCE", 0.62),
+    minConfidence: readNumber("TRADING_MIN_CONFIDENCE", 0.8),
+    regimePersistence: {
+      entryCycles: readNumber("REGIME_ENTRY_PERSISTENCE_CYCLES", 2),
+      exitCycles: readNumber("REGIME_EXIT_PERSISTENCE_CYCLES", 2)
+    },
     initialBaseBalance: readNumber("INITIAL_BASE_BALANCE", 0),
     feeRate: readNumber("TRADING_FEE_RATE", 0.001),
     maxTradeHistory: readNumber("MAX_TRADE_HISTORY", 200),
     closeOnBear: readBoolean("CLOSE_ON_BEAR", true),
     dca: {
       maxEntries: readNumber("DCA_MAX_ENTRIES", 5),
-      takeProfitPercent: readNumber("DCA_TAKE_PROFIT_PERCENT", 0.04),
+      takeProfitPercent: readNumber("DCA_TAKE_PROFIT_PERCENT", 0.012),
       trailingTakeProfitEnabled: readBoolean("DCA_TRAILING_TAKE_PROFIT_ENABLED", true),
-      trailingStopPercent: readNumber("DCA_TRAILING_STOP_PERCENT", 0.015),
-      stopLossPercent: readNumber("DCA_STOP_LOSS_PERCENT", 0.05)
+      trailingStopPercent: readNumber("DCA_TRAILING_STOP_PERCENT", 0.005),
+      stopLossPercent: readNumber("DCA_STOP_LOSS_PERCENT", 0.02)
     },
     grid: {
       trancheQuote: readNumber("GRID_TRANCHE_QUOTE", 150),
       maxLevels: readNumber("GRID_MAX_LEVELS", 6),
-      spacingPercent: readNumber("GRID_SPACING_PERCENT", 0.015),
-      takeProfitPercent: readNumber("GRID_TAKE_PROFIT_PERCENT", 0.012),
-      stopLossPercent: readNumber("GRID_STOP_LOSS_PERCENT", 0.05),
+      spacingPercent: readNumber("GRID_SPACING_PERCENT", 0.008),
+      takeProfitPercent: readNumber("GRID_TAKE_PROFIT_PERCENT", 0.006),
+      stopLossPercent: readNumber("GRID_STOP_LOSS_PERCENT", 0.025),
       trailingTakeProfitEnabled: readBoolean("GRID_TRAILING_TAKE_PROFIT_ENABLED", true),
-      trailingTakeProfitStopPercent: readNumber("GRID_TRAILING_TAKE_PROFIT_STOP_PERCENT", 0.008),
+      trailingTakeProfitStopPercent: readNumber("GRID_TRAILING_TAKE_PROFIT_STOP_PERCENT", 0.004),
       trailingStopLossEnabled: readBoolean("GRID_TRAILING_STOP_LOSS_ENABLED", true),
-      trailingStopLossPercent: readNumber("GRID_TRAILING_STOP_LOSS_PERCENT", 0.03)
+      trailingStopLossPercent: readNumber("GRID_TRAILING_STOP_LOSS_PERCENT", 0.015)
     }
   }
 };
@@ -209,6 +217,7 @@ export async function loadConfig(databaseUrl = getDatabaseUrl()): Promise<AppCon
       mode: staticConfig.trading.mode,
       databaseUrl,
       minConfidence: staticConfig.trading.minConfidence,
+      regimePersistence: staticConfig.trading.regimePersistence,
       initialQuoteBalance: runtimeConfig.initialQuoteBalance,
       initialBaseBalance: staticConfig.trading.initialBaseBalance,
       feeRate: staticConfig.trading.feeRate,

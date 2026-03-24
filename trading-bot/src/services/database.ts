@@ -106,6 +106,7 @@ export async function initializeTradingDatabase(
       balances JSONB NOT NULL,
       dca JSONB NOT NULL,
       grid JSONB NOT NULL DEFAULT '{}'::jsonb,
+      regime_persistence JSONB NOT NULL DEFAULT '{}'::jsonb,
       last_updated TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       PRIMARY KEY (symbol, mode)
     );
@@ -119,6 +120,11 @@ export async function initializeTradingDatabase(
   await databasePool.query(`
     ALTER TABLE trading_states
     ADD COLUMN IF NOT EXISTS grid JSONB NOT NULL DEFAULT '{}'::jsonb;
+  `);
+
+  await databasePool.query(`
+    ALTER TABLE trading_states
+    ADD COLUMN IF NOT EXISTS regime_persistence JSONB NOT NULL DEFAULT '{}'::jsonb;
   `);
 
   await databasePool.query(`

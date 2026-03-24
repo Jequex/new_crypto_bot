@@ -166,6 +166,13 @@ export interface GridState {
   levels: GridLevel[];
 }
 
+export interface RegimePersistenceState {
+  lastPreferredStrategy: StrategyName;
+  preferredStrategyStreak: number;
+  dcaUnsupportedCycles: number;
+  gridUnsupportedCycles: number;
+}
+
 export interface TradingState {
   symbol: string;
   mode: TradingMode;
@@ -174,6 +181,7 @@ export interface TradingState {
   balances: TradingBalances;
   dca: DcaState;
   grid: GridState;
+  regimePersistence: RegimePersistenceState;
   tradeHistory: TradeExecution[];
   lastUpdated: string;
 }
